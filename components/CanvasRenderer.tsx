@@ -55,7 +55,8 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   const [exportEta, setExportEta] = useState(0);
 
   const trackingOffsetRef = useRef({ x: 0, y: 0, scale: 1.0 });
-  const PROC_WIDTH = 800; 
+  const MIN_PROC_WIDTH = 960;
+  const MAX_PROC_WIDTH = 1800;
 
   useEffect(() => {
     if (isVideo && mediaLoaded && sourceVideoRef.current) {
@@ -263,8 +264,9 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
     if (canvasRef.current && mediaLoaded && unitSize.w > 0) {
       const displayCtx = canvasRef.current.getContext('2d');
       const internalCanvas = internalCanvasRef.current;
-      const scale = PROC_WIDTH / unitSize.w;
-      const procW = PROC_WIDTH;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const procW = Math.round(Math.min(MAX_PROC_WIDTH, Math.max(MIN_PROC_WIDTH, unitSize.w * dpr)));
+      const scale = procW / unitSize.w;
       const procH = Math.floor(unitSize.h * scale);
       const source = isVideo ? sourceVideoRef.current : sourceImageRef.current;
       if (internalCanvas.width !== procW || internalCanvas.height !== procH) {

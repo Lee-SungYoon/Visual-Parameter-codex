@@ -47,6 +47,7 @@ void main() {
 `;
 
 const FRAGMENT_SHADER = `
+#extension GL_OES_standard_derivatives : enable
 precision highp float;
 
 uniform sampler2D u_texture;
@@ -67,6 +68,24 @@ float hash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
   p += dot(p, p + 45.32);
   return fract(p.x * p.y);
+}
+
+float aaWidth(float value) {
+  return max(fwidth(value), 0.0015);
+}
+
+float aaBand(float value, float edge) {
+  float w = aaWidth(value);
+  return 1.0 - smoothstep(edge - w, edge + w, value);
+}
+
+float aaRect(vec2 p, vec2 halfSize) {
+  vec2 d = abs(p) - halfSize;
+  float outside = length(max(d, 0.0));
+  float inside = min(max(d.x, d.y), 0.0);
+  float signedDistance = outside + inside;
+  float w = max(fwidth(signedDistance), 0.0015);
+  return 1.0 - smoothstep(-w, w, signedDistance);
 }
 
 vec2 coverUv(vec2 uv) {
@@ -171,7 +190,7 @@ void main() {
     float gridSize = max(u_params[0], 8.0);
     vec2 grid = fract(v_uv * u_resolution / gridSize);
     float line = min(min(grid.x, grid.y), min(1.0 - grid.x, 1.0 - grid.y));
-    float wire = 1.0 - smoothstep(0.015, 0.055, line);
+    float wire = aaBand(line, 0.035);
     float pulse = 0.55 + 0.45 * sin(u_time * 2.0 + luma * 8.0);
     color = mix(color * 0.55, u_color * (0.4 + luma) * pulse, wire);
   } else if (u_effect == 4) {
@@ -190,7 +209,7 @@ void main() {
     float scale = max(u_params[1] * 0.02, 4.0);
     vec2 cell = floor(v_uv * scale);
     vec2 local = fract(v_uv * scale);
-    float point = 1.0 - smoothstep(0.02, 0.08, length(local - 0.5));
+    float point = aaBand(length(local - 0.5), 0.055);
     float h = hash(cell);
     float link = step(0.965, hash(vec2(cell.x + floor(u_time), cell.y)));
     color = mix(color * 0.45, u_color * (0.5 + h), max(point, link * 0.55));
@@ -221,7 +240,7 @@ void main() {
     float angle = (hash(cell) - 0.5) * 1.4 + sin(u_time * speed + hash(cell) * 6.2831) * 0.28;
     mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
     vec2 brick = rot * local;
-    float rect = step(abs(brick.x), 0.18 * blockScale) * step(abs(brick.y), 0.48 * blockScale);
+    float rect = aaRect(brick, vec2(0.18, 0.48) * blockScale);
     float avoid = 0.0;
     for (int i = 0; i < 8; i++) {
       if (i >= u_boxCount) break;
@@ -304,6 +323,7 @@ export const createShaderRenderer = (canvas: HTMLCanvasElement): ShaderRenderer 
     preserveDrawingBuffer: true,
   });
   if (!gl) return null;
+  gl.getExtension('OES_standard_derivatives');
 
   const program = createProgram(gl);
   const texture = gl.createTexture();
