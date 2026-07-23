@@ -1,0 +1,6 @@
+{
+  "name": "Visual Parameter",
+  "description": "A generative art tool for real-time image and video manipulation using diverse effects, color grading, and automated mixing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

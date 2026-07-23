@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visual Parameter</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      (function() {
+        const suppressStrings = [
+          'gl_context.cc', 
+          'OpenGL error checking', 
+          'check_errors', 
+          '1819728',
+          'Graph successfully started running',
+          'GL version:',
+          'renderer: WebKit WebGL',
+          'Status:',
+          'INFO: Created TensorFlow Lite'
+        ];
+        const wrap = (original) => (...args) => {
+          if (args.length > 0) {
+            const firstArg = String(args[0]);
+            if (suppressStrings.some(s => firstArg.includes(s))) return;
+          }
+          return original.apply(console, args);
+        };
+        console.log = wrap(console.log);
+        console.info = wrap(console.info);
+        console.warn = wrap(console.warn);
+        console.error = wrap(console.error);
+        console.debug = wrap(console.debug);
+      })();
+    </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #ffffff;
+        color: #18181b;
+        overflow: hidden;
+      }
+      ::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #e4e4e7;
+        border-radius: 2px;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+          display: none;
+      }
+      .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+      }
+      
+      input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 12px;
+        width: 12px;
+        border-radius: 50%;
+        background: #18181b;
+        cursor: pointer;
+        margin-top: -4px;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
