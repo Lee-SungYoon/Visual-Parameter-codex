@@ -45,6 +45,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   const internalCanvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
   const trackingCanvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
   const containerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const sourceVideoRef = useRef<HTMLVideoElement>(null);
   const sourceImageRef = useRef<HTMLImageElement>(null);
   const segmenterRef = useRef<ImageSegmenter | null>(null);
@@ -638,14 +639,37 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
       )}
       
       <div 
-        className={`relative w-1/2 h-full flex items-center justify-center transition-opacity duration-700 ${isDragging ? 'opacity-50' : 'opacity-100'}`}
+        className={`relative w-1/2 h-full flex items-center justify-center overflow-hidden transition-opacity duration-700 ${mediaSrc ? 'bg-white' : 'bg-zinc-950'} ${isDragging ? 'opacity-70' : 'opacity-100'}`}
         onDragOver={(e) => {e.preventDefault(); setIsDragging(true);}}
         onDragLeave={() => setIsDragging(false)}
         onDrop={(e) => {e.preventDefault(); setIsDragging(false); if(e.dataTransfer.files[0]) onUpload(e.dataTransfer.files[0]);}}
       >
         {!mediaSrc && (
-          <div className="flex flex-col items-center gap-4 text-zinc-100 pointer-events-none">
-             <span className="text-[9px] font-black uppercase tracking-[0.4em]">Initialize_Input (Drop File)</span>
+          <div className="flex h-full w-full items-center justify-center p-10">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) onUpload(file);
+                event.currentTarget.value = '';
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="group flex h-full max-h-[520px] w-full max-w-[720px] flex-col items-center justify-center rounded-[18px] border border-dashed border-white/25 bg-white/[0.04] px-8 text-center transition hover:border-white/55 hover:bg-white/[0.08]"
+            >
+              <span className="text-[11px] font-black uppercase tracking-[0.45em] text-white">Initialize Input</span>
+              <span className="mt-5 max-w-sm text-[12px] font-bold uppercase tracking-[0.18em] text-white/45">
+                Click or drop image/video
+              </span>
+              <span className="mt-4 text-[9px] font-bold uppercase tracking-[0.22em] text-white/25">
+                JPG PNG WEBP MP4 MOV WEBM
+              </span>
+            </button>
           </div>
         )}
         {mediaSrc && isVideo && (
@@ -657,6 +681,11 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
       </div>
 
       <div className="relative w-1/2 h-full bg-white flex items-center justify-center">
+        {!mediaSrc && (
+          <div className="absolute inset-0 flex items-center justify-center bg-zinc-100 text-zinc-300">
+            <span className="text-[10px] font-black uppercase tracking-[0.45em]">Effect Preview</span>
+          </div>
+        )}
         <canvas ref={canvasRef} width={canvasSize.w} height={canvasSize.h} className={`w-full h-full transition-all duration-1000 ${mediaLoaded ? 'opacity-100' : 'opacity-0'}`} />
       </div>
     </div>

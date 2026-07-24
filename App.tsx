@@ -104,6 +104,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (isOnAirView) return;
+    if (!mediaSrc) {
+      setIsNavigatorVisible(true);
+      return;
+    }
 
     const showNavigator = () => {
       setIsNavigatorVisible(true);
@@ -118,7 +122,7 @@ const App: React.FC = () => {
       window.removeEventListener('mousemove', showNavigator);
       if (navigatorHideTimerRef.current) clearTimeout(navigatorHideTimerRef.current);
     };
-  }, [isOnAirView]);
+  }, [isOnAirView, mediaSrc]);
 
   const handleUpload = (file: File) => {
     if (!SUPPORTED_MEDIA_TYPES.has(file.type)) {
