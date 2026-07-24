@@ -344,8 +344,8 @@ void main() {
   } else if (u_effect == 14) {
     float direction = u_params[0];
     float threshold = u_params[1];
-    float stretch = u_params[6] * 0.16;
-    float wave = sin((uv.y + uv.x * 0.3 + u_time * u_params[5] * 0.08) * 80.0) * u_params[4] * 0.01;
+    float stretch = u_params[6] * 0.24;
+    float wave = sin((uv.y + uv.x * 0.3 + u_time * u_params[5] * 0.08) * 80.0) * u_params[4] * 0.015;
     float sourceLuma = dot(sampleSource(uv).rgb, vec3(0.299, 0.587, 0.114));
     vec2 radialDir = normalize(centered + vec2(0.0001));
     if (direction < 0.5) {
@@ -639,8 +639,8 @@ void main() {
   } else if (u_effect == 14) {
     float subject = trackedMask(v_uv, 0.16);
     float gate = smoothstep(u_params[1], 1.0, luma);
-    vec3 flowVideo = sampleSource(effectUv + normalize(effectUv - trackedCenter() + vec2(0.0001)) * gate * subject * u_params[6] * 0.018).rgb;
-    color = mix(color, flowVideo * (0.9 + u_color * 0.28), gate * subject * 0.72);
+    vec3 flowVideo = sampleSource(effectUv + normalize(effectUv - trackedCenter() + vec2(0.0001)) * gate * subject * u_params[6] * 0.027).rgb;
+    color = mix(color, flowVideo * (0.9 + u_color * 0.28), gate * subject * 0.86);
   } else if (u_effect == 15) {
     float direction = u_params[1];
     float subject = trackedMask(v_uv, 0.18);
