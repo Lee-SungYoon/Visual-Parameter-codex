@@ -684,6 +684,8 @@ void main() {
   );
   vec3 chromeColor = mix(vec3(postLuma * 0.18, postLuma * 0.34, postLuma * 0.42), vec3(0.65, 0.9, 1.0), smoothstep(0.48, 1.0, postLuma));
   chromeColor = mix(chromeColor, vec3(0.02, 0.025, 0.04), smoothstep(0.12, 0.0, postLuma));
+  vec3 colorMixTint = mix(vec3(postLuma) * u_color * 1.55, color * (0.72 + u_color * 0.58), 0.5);
+  color = mix(color, colorMixTint, u_lookFlags.w * 0.62);
   color = mix(color, solarColor, u_lookFlags.y);
   color = mix(color, chromeColor, u_lookFlags.z);
   color = mix(color, thermal(color), u_flags.z);
@@ -721,6 +723,8 @@ void main() {
   float finalLuma = dot(color, vec3(0.299, 0.587, 0.114));
   vec3 finalXray = vec3(0.01, 0.08, 0.12) + vec3(0.2, 0.86, 1.0) * pow(1.0 - finalLuma, 1.7);
   finalXray += vec3(0.55, 0.95, 1.0) * smoothstep(0.045, 0.24, postEdge);
+  vec3 finalColorMixTint = mix(vec3(finalLuma) * u_color * 1.55, color * (0.72 + u_color * 0.58), 0.5);
+  color = mix(color, finalColorMixTint, u_lookFlags.w * 0.62);
   color = mix(color, solarColor, u_lookFlags.y);
   color = mix(color, chromeColor, u_lookFlags.z);
   color = mix(color, thermal(color), u_flags.z);
@@ -1070,7 +1074,7 @@ export const renderShaderFrame = (
     colorModeWeights?.xray ?? (globalParams.xray ? 1 : 0),
     colorModeWeights?.warm ?? (globalParams.dramaticWarm ? 1 : 0),
     colorModeWeights?.cool ?? (globalParams.dramaticCool ? 1 : 0),
-    0
+    globalParams.colorMix ? 1 : 0
   );
   gl.uniform3fv(renderer.colorLocation, new Float32Array(hexToRgb(globalParams.effectColor)));
   const boxes = new Float32Array(8 * 4);
