@@ -75,13 +75,6 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs}`;
 };
 
-const statusTone = (status?: string) => {
-  if (status === 'Complete') return 'bg-emerald-400/20 text-emerald-200 border-emerald-300/30';
-  if (status === 'Lite') return 'bg-sky-400/20 text-sky-200 border-sky-300/30';
-  if (status === 'Mock') return 'bg-amber-400/20 text-amber-100 border-amber-300/30';
-  return 'bg-white/10 text-white/45 border-white/10';
-};
-
 const ControlPanel: React.FC<ControlPanelProps> = ({
   globalParams,
   setGlobalParams,
@@ -132,38 +125,20 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     });
   };
 
-  const renderEffectGroup = (title: string, effects: EffectDef[]) => (
-    <div>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/35">{title}</span>
-        <span className="text-[8px] font-black uppercase text-white/25">{effects.length} modes</span>
-      </div>
-      <div className={`grid gap-2 ${effects.length <= 5 ? 'grid-cols-5' : 'grid-cols-7'}`}>
-        {effects.map((effect) => {
-          const isActive = activeEffect.id === effect.id;
-          return (
-            <button
-              key={effect.id}
-              onClick={() => onSelectEffect(effect)}
-              className={`group flex min-h-[88px] flex-col justify-between rounded-lg border p-3 text-left transition ${isActive ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'}`}
-            >
-              <div>
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-[10px] font-black uppercase leading-tight">{effect.name}</span>
-                  <span className={`rounded-full border px-2 py-0.5 text-[7px] font-black uppercase ${isActive ? 'border-zinc-950/20 bg-zinc-950/10 text-zinc-700' : statusTone(effect.status)}`}>
-                    {effect.status || 'Planned'}
-                  </span>
-                </div>
-                <p className={`mt-2 line-clamp-2 text-[8px] font-bold leading-snug ${isActive ? 'text-zinc-600' : 'text-white/45'}`}>{effect.description}</p>
-              </div>
-              <div className="mt-2 flex items-center justify-between gap-2">
-                <span className={`text-[7px] font-black uppercase ${isActive ? 'text-zinc-600' : 'text-white/35'}`}>GPU {effect.gpuLoad || 'Medium'}</span>
-                <span className={`h-1.5 w-9 rounded-full ${isActive ? 'bg-zinc-950' : 'bg-white/25 group-hover:bg-white/50'}`} />
-              </div>
-            </button>
-          );
-        })}
-      </div>
+  const renderEffectMenu = () => (
+    <div className="grid grid-cols-6 gap-2 xl:grid-cols-12">
+      {allEffects.map((effect) => {
+        const isActive = activeEffect.id === effect.id;
+        return (
+          <button
+            key={effect.id}
+            onClick={() => onSelectEffect(effect)}
+            className={`h-10 rounded-full border px-3 text-[10px] font-black uppercase transition ${isActive ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/55 hover:border-white/35 hover:bg-white/15 hover:text-white'}`}
+          >
+            {effect.name}
+          </button>
+        );
+      })}
     </div>
   );
 
@@ -247,9 +222,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
   return (
     <div className="flex w-full flex-col gap-2 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
-        {renderEffectGroup('Video Effects', allEffects.filter((effect) => effect.category === 'video_effect'))}
-        {renderEffectGroup('Kinetic Graphics', allEffects.filter((effect) => effect.category === 'kinetic_graphic'))}
+      <div className="rounded-[28px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+        {renderEffectMenu()}
       </div>
 
       <div className="rounded-[28px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">

@@ -31,7 +31,7 @@ export type BlendMode = 'normal' | 'screen' | 'add' | 'multiply' | 'difference';
 export type PreviewMode = 'original' | 'effect' | 'split' | 'before_after';
 export type EffectStatus = 'Complete' | 'Lite' | 'Mock' | 'Planned';
 export type GpuLoad = 'Low' | 'Medium' | 'High' | 'Experimental';
-export type EffectCategory = 'video_effect' | 'kinetic_graphic' | 'legacy';
+export type EffectCategory = 'video_effect' | 'reference_effect' | 'legacy';
 export type GraphicStylePreset = 'minimal_white' | 'tech_green' | 'digital_blue' | 'luxury_gold' | 'monochrome' | 'custom';
 export type AnimationMode = 'static' | 'float' | 'pulse' | 'follow_motion' | 'expand' | 'scan';
 
