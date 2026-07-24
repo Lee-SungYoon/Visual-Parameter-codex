@@ -228,8 +228,8 @@ export const EFFECTS: EffectDef[] = [
     },
     paramConfig: {
       shapeType: { type: 'select', options: ['arrow', 'dot', 'square', 'number', 'alphabet'] },
-      threshold: { type: 'slider', min: 5, max: 120, step: 1, randomRange: [20, 70] },
-      dotSize: { type: 'slider', min: 0.5, max: 15, step: 0.5, randomRange: [1, 5] },
+      threshold: { type: 'slider', min: 5, max: 120, step: 0.5, randomRange: [20, 70] },
+      dotSize: { type: 'slider', min: 0.5, max: 15, step: 0.25, randomRange: [1, 5] },
       dotRandom: { type: 'slider', min: 0, max: 1, step: 0.1, randomRange: [0.1, 0.8] },
     },
   },

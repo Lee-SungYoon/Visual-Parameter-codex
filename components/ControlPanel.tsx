@@ -2,14 +2,18 @@ import React from 'react';
 import { AnimationMode, BlendMode, EffectDef, GlobalParams, GraphicStylePreset, ParamConfig, PlaybackState, PreviewMode } from '../types';
 import {
   CheckSquare,
+  Circle,
   ExternalLink,
+  Hash,
   Maximize2,
+  MousePointer2,
   Pause,
   Play,
   RotateCcw,
   SkipBack,
   SkipForward,
   Square,
+  Type,
   Volume2,
   VolumeX,
 } from 'lucide-react';
@@ -75,15 +79,23 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs}`;
 };
 
-const formatParamLabel = (key: string) => key.replace(/([A-Z])/g, ' $1').toUpperCase();
+const formatParamLabel = (key: string) => key.toUpperCase();
 
 const formatParamValue = (value: number | string | boolean, config?: ParamConfig) => {
   if (typeof value === 'boolean') return value ? 'ON' : 'OFF';
   if (typeof value === 'string') return value.toUpperCase();
-  if (config?.max === 1 && config?.min === 0) return `${Math.round(value * 100)}`;
-  if (Number.isInteger(value)) return `${value}`;
-  if (Math.abs(value) < 0.1) return value.toFixed(3);
-  return value.toFixed(1);
+  const step = config?.step || 1;
+  const decimalPlaces = step < 1 ? Math.min(step.toString().split('.')[1]?.length || 0, 3) : 0;
+  return value.toFixed(decimalPlaces).replace(/\.?0+$/, '');
+};
+
+const renderOptionIcon = (option: string) => {
+  if (option === 'arrow') return <MousePointer2 size={15} />;
+  if (option === 'dot') return <Circle size={12} fill="currentColor" strokeWidth={0} />;
+  if (option === 'square') return <Square size={12} fill="currentColor" strokeWidth={0} />;
+  if (option === 'number') return <Hash size={14} />;
+  if (option === 'alphabet') return <Type size={14} />;
+  return <span className="px-2">{option}</span>;
 };
 
 const ControlPanel: React.FC<ControlPanelProps> = ({
@@ -179,17 +191,19 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     }
 
     if (config.type === 'select') {
+      const isIconSelect = config.options?.every((option) => ['arrow', 'dot', 'square', 'number', 'alphabet'].includes(option));
       return (
-        <div key={key} className="min-w-[190px]">
-          <div className="mb-2 text-[8px] font-black uppercase text-white/45">{label}</div>
-          <div className="flex rounded-full border border-white/10 bg-black/35 p-1">
+        <div key={key} className={isIconSelect ? 'flex min-w-fit items-end' : 'min-w-[190px]'}>
+          {!isIconSelect && <div className="mb-2 text-[8px] font-black uppercase text-white/45">{label}</div>}
+          <div className="flex rounded-[18px] border border-white/10 bg-black/35 p-1">
             {config.options?.map((option) => (
               <button
                 key={option}
+                title={`${label}: ${option}`}
                 onClick={() => updateEffect(key, option)}
-                className={`h-7 flex-1 rounded-full px-2 text-[8px] font-black uppercase transition ${value === option ? 'bg-white text-zinc-900' : 'text-white/45 hover:bg-white/10 hover:text-white'}`}
+                className={`flex h-8 items-center justify-center rounded-full text-[8px] font-black uppercase transition ${isIconSelect ? 'w-8' : 'flex-1 px-2'} ${value === option ? 'bg-white text-zinc-900' : 'text-white/45 hover:bg-white/10 hover:text-white'}`}
               >
-                {option}
+                {isIconSelect ? renderOptionIcon(option) : option}
               </button>
             ))}
           </div>
