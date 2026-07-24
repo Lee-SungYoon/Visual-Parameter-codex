@@ -80,13 +80,13 @@ export const EFFECTS: EffectDef[] = [
     status: 'Complete',
     gpuLoad: 'Medium',
     defaultParams: {
-      rgbAmount: 0.07,
+      rgbAmount: 0.03,
       direction: 'radial',
       radialAmount: 0.9,
-      jitter: 0.48,
-      lensDistortion: 0.45,
+      jitter: 0.98,
+      lensDistortion: 0.89,
       motionReactivity: 0.85,
-      edgeOnly: true,
+      edgeOnly: false,
       effectAmount: 1,
     },
     paramConfig: {
@@ -130,11 +130,11 @@ export const EFFECTS: EffectDef[] = [
     gpuLoad: 'Medium',
     defaultParams: {
       direction: 'horizontal',
-      threshold: 0.34,
-      sortLength: 0.62,
+      threshold: 0.72,
+      sortLength: 1,
       noise: 0.34,
       speed: 1.6,
-      stretchAmount: 0.85,
+      stretchAmount: 0.45,
       motionReactivity: 0.8,
     },
     paramConfig: {
@@ -173,14 +173,14 @@ export const EFFECTS: EffectDef[] = [
     status: 'Complete',
     gpuLoad: 'Medium',
     defaultParams: {
-      gridSize: 25,
-      recursive: 2,
-      wireframe: false,
+      gridSize: 6,
+      recursive: 4,
+      wireframe: true,
       shape: 'triangle',
-      displacement: 35
+      displacement: 1
     },
     paramConfig: {
-      gridSize: { type: 'slider', min: 10, max: 60, step: 1, randomRange: [15, 35] },
+      gridSize: { type: 'slider', min: 1, max: 60, step: 1, randomRange: [6, 24] },
       recursive: { type: 'slider', min: 0, max: 4, step: 1, randomRange: [1, 3] },
       wireframe: { type: 'toggle' },
       shape: { type: 'select', options: ['triangle', 'hexagon', 'rhombus'] },
@@ -196,9 +196,9 @@ export const EFFECTS: EffectDef[] = [
     gpuLoad: 'Low',
     defaultParams: {
       shapeType: 'arrow',
-      threshold: 62.5,
-      dotSize: 15.5,
-      dotRandom: 0.5,
+      threshold: 5,
+      dotSize: 30,
+      dotRandom: 1,
     },
     paramConfig: {
       shapeType: { type: 'select', options: ['arrow', 'dot', 'square', 'number', 'alphabet'] },
@@ -367,14 +367,14 @@ export const LEGACY_EFFECTS: EffectDef[] = [
     description: 'Dynamic edge-detected trails',
     defaultParams: {
       shapeType: 'arrow',
-      threshold: 62.5,
-      dotSize: 7.75,
-      dotRandom: 0.5,
+      threshold: 5,
+      dotSize: 30,
+      dotRandom: 1,
     },
     paramConfig: {
       shapeType: { type: 'select', options: ['arrow', 'dot', 'square', 'number', 'alphabet'] },
       threshold: { type: 'slider', min: 5, max: 120, step: 1, randomRange: [20, 70] },
-      dotSize: { type: 'slider', min: 0.5, max: 15, step: 0.5, randomRange: [1, 5] },
+      dotSize: { type: 'slider', min: 0.5, max: 30, step: 0.5, randomRange: [8, 18] },
       dotRandom: { type: 'slider', min: 0, max: 1, step: 0.1, randomRange: [0.1, 0.8] },
     },
   },
