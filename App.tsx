@@ -7,6 +7,16 @@ import { EFFECTS, INITIAL_GLOBAL_PARAMS } from './constants';
 import { GlobalParams, EffectDef, ParamConfig, PlaybackState } from './types';
 import { randomFloat, randomInt, hslToHex } from './services/utils';
 
+const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
+const SUPPORTED_MEDIA_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
+]);
+
 const App: React.FC = () => {
   const [mediaSrc, setMediaSrc] = useState<string | null>(null);
   const [isVideo, setIsVideo] = useState(false);
@@ -30,6 +40,7 @@ const App: React.FC = () => {
   const rendererRef = useRef<CanvasRendererHandle>(null);
   const onAirRendererRef = useRef<CanvasRendererHandle>(null);
   const navigatorHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mediaObjectUrlRef = useRef<string | null>(null);
   const activeEffectRef = useRef(activeEffect);
   const effectParamsRef = useRef(effectParams);
   const globalParamsRef = useRef(globalParams);
@@ -110,11 +121,31 @@ const App: React.FC = () => {
   }, [isOnAirView]);
 
   const handleUpload = (file: File) => {
+    if (!SUPPORTED_MEDIA_TYPES.has(file.type)) {
+      window.alert('지원되는 파일 형식은 JPG, PNG, WEBP, MP4, MOV, WEBM입니다.');
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      window.alert('업로드 파일은 최대 500MB까지 지원합니다.');
+      return;
+    }
+    if (mediaObjectUrlRef.current) {
+      URL.revokeObjectURL(mediaObjectUrlRef.current);
+      mediaObjectUrlRef.current = null;
+    }
     const url = URL.createObjectURL(file);
+    mediaObjectUrlRef.current = url;
     setMediaSrc(url);
     setIsVideo(file.type.startsWith('video'));
     setPlaybackState({ isPlaying: false, currentTime: 0, duration: 0, loop: true, muted: false });
   };
+
+  useEffect(() => () => {
+    if (mediaObjectUrlRef.current) {
+      URL.revokeObjectURL(mediaObjectUrlRef.current);
+    }
+    syncChannel.close();
+  }, [syncChannel]);
 
   const handleExport = () => {
     if (rendererRef.current) rendererRef.current.startExport();
@@ -123,11 +154,12 @@ const App: React.FC = () => {
   const handleOnAir = () => {
     const url = new URL(window.location.href);
     url.searchParams.set('view', 'onair');
-    window.open(
+    const onAirWindow = window.open(
       url.toString(), 
       'VisualParameterOnAir', 
-      'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no,resizable=yes'
+      'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no,resizable=yes,noopener,noreferrer'
     );
+    if (onAirWindow) onAirWindow.opener = null;
   };
 
   const handleStartOnAir = () => {

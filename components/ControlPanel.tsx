@@ -8,7 +8,6 @@ import {
   MousePointer2,
   Pause,
   Play,
-  SlidersHorizontal,
   SkipBack,
   SkipForward,
   Square,
@@ -157,7 +156,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   ) => {
     const value = globalParams[key];
     return (
-      <div className="min-w-0 flex-1 basis-[clamp(96px,9vw,132px)]">
+      <div className="min-w-0 flex-1 basis-[clamp(86px,8.1vw,119px)]">
         <div className="mb-2 flex items-center justify-between text-[8px] font-black uppercase text-white/45">
           <span>{label}</span>
           <span className="tabular-nums text-white/80">{Math.round(value)}</span>
@@ -254,7 +253,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   const renderGlobalMenu = () => (
     <div className="flex w-full max-w-[calc(100vw-25.6px)] items-center justify-between gap-x-4 overflow-hidden whitespace-nowrap">
       <div className="flex min-w-0 flex-1 items-center gap-x-4">
-        <SlidersHorizontal size={16} className="text-white/35" />
         {renderColorSlider('hue', 'HUE', 0, 360, 'bg-[linear-gradient(90deg,#ff003c,#ffee00,#00ff73,#00d5ff,#332cff,#ff00c8,#ff003c)]')}
         {renderColorSlider('saturation', 'SAT', 0, 100)}
         {renderColorSlider('lightness', 'LUM', 0, 100)}

@@ -178,6 +178,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
         const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
         a.download = `VisualParameter_Master_${Date.now()}.${extension}`;
         a.click();
+        URL.revokeObjectURL(url);
         
         setIsExporting(false); 
         setExportProgress(0); 
