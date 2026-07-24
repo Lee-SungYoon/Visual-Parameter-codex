@@ -397,7 +397,15 @@ void main() {
     float focus = trackedMask(uv, 0.16);
     float shadow = 1.0 - smoothstep(0.08, 0.42, dot(feedback, vec3(0.299, 0.587, 0.114)));
     vec3 invertedTrail = mix(1.0 - originalColor, 1.0 - feedback, 0.55);
-    vec3 trailBase = mix(feedback, invertedTrail, shadow * (0.55 + decay * 0.35));
+    float colorSeed = floor(u_time * 1.7) + floor(uv.x * 5.0) * 13.0 + floor(uv.y * 5.0) * 29.0;
+    vec3 randomTrailColor = vec3(
+      0.35 + 0.65 * hash(vec2(colorSeed, 1.7)),
+      0.35 + 0.65 * hash(vec2(colorSeed, 5.3)),
+      0.35 + 0.65 * hash(vec2(colorSeed, 9.1))
+    );
+    randomTrailColor = mix(randomTrailColor, normalize(u_color + randomTrailColor + vec3(0.12)), 0.35);
+    vec3 coloredShadow = mix(invertedTrail, randomTrailColor * (0.72 + focus * 0.28), shadow);
+    vec3 trailBase = mix(feedback, coloredShadow, shadow * (0.6 + decay * 0.32));
     color = mix(color, trailBase * (1.0 - decay * 0.18) + u_color * bright * glow, trail * (0.35 + focus * 0.85));
   } else if (u_effect == 12) {
     float amount = u_params[0];
