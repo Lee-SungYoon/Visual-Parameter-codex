@@ -133,7 +133,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           <button
             key={effect.id}
             onClick={() => onSelectEffect(effect)}
-            className={`h-10 rounded-full border px-3 text-[10px] font-black uppercase transition ${isActive ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/55 hover:border-white/35 hover:bg-white/15 hover:text-white'}`}
+            className={`h-10 rounded-[24px] border px-3 text-[10px] font-black uppercase transition ${isActive ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/55 hover:border-white/35 hover:bg-white/15 hover:text-white'}`}
           >
             {effect.name}
           </button>
@@ -222,11 +222,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
   return (
     <div className="flex w-full flex-col gap-2 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="rounded-[28px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+      <div className="rounded-[24px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
         {renderEffectMenu()}
       </div>
 
-      <div className="rounded-[28px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+      <div className="rounded-[24px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <button
             onClick={() => updateGlobal('effectEnabled', !globalParams.effectEnabled)}
@@ -319,7 +319,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
       </div>
 
-      <div className="rounded-full border border-white/10 bg-zinc-950/55 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+      <div className="rounded-[24px] border border-white/10 bg-zinc-950/55 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex max-w-[720px] flex-1 flex-wrap items-center gap-4">
             {(Object.entries(activeEffect.paramConfig) as [string, ParamConfig][]).map(renderParamControl)}
