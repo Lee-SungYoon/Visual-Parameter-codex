@@ -639,13 +639,13 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
       )}
       
       <div 
-        className={`relative w-1/2 h-full flex items-center justify-center overflow-hidden transition-opacity duration-700 ${mediaSrc ? 'bg-white' : 'bg-zinc-950'} ${isDragging ? 'opacity-70' : 'opacity-100'}`}
+        className={`relative w-1/2 h-full flex items-center justify-center overflow-hidden bg-white transition-opacity duration-700 ${isDragging ? 'opacity-70' : 'opacity-100'}`}
         onDragOver={(e) => {e.preventDefault(); setIsDragging(true);}}
         onDragLeave={() => setIsDragging(false)}
         onDrop={(e) => {e.preventDefault(); setIsDragging(false); if(e.dataTransfer.files[0]) onUpload(e.dataTransfer.files[0]);}}
       >
         {!mediaSrc && (
-          <div className="flex h-full w-full items-center justify-center p-10">
+          <div className="flex h-full w-full items-center justify-center">
             <input
               ref={fileInputRef}
               type="file"
@@ -660,15 +660,9 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="group flex h-full max-h-[520px] w-full max-w-[720px] flex-col items-center justify-center rounded-[18px] border border-dashed border-white/25 bg-white/[0.04] px-8 text-center transition hover:border-white/55 hover:bg-white/[0.08]"
+              className="flex h-full w-full items-center justify-center bg-white text-zinc-300 transition hover:text-zinc-500"
             >
-              <span className="text-[11px] font-black uppercase tracking-[0.45em] text-white">Initialize Input</span>
-              <span className="mt-5 max-w-sm text-[12px] font-bold uppercase tracking-[0.18em] text-white/45">
-                Click or drop image/video
-              </span>
-              <span className="mt-4 text-[9px] font-bold uppercase tracking-[0.22em] text-white/25">
-                JPG PNG WEBP MP4 MOV WEBM
-              </span>
+              <span className="text-[10px] font-black uppercase tracking-[0.45em]">Initialize Input</span>
             </button>
           </div>
         )}
