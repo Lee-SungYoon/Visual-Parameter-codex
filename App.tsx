@@ -203,7 +203,7 @@ const App: React.FC = () => {
           onPlaybackStateChange={setPlaybackState}
         />
       </main>
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-50 w-full px-6 max-w-[1600px] pointer-events-none">
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-50 w-full px-6 pointer-events-none">
          <div className="pointer-events-auto">
             <ControlPanel 
               globalParams={globalParams}

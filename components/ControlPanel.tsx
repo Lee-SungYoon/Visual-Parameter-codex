@@ -69,6 +69,9 @@ const renderOptionIcon = (option: string) => {
   if (option === 'square') return <Square size={12} fill="currentColor" strokeWidth={0} />;
   if (option === 'number') return <Hash size={14} />;
   if (option === 'alphabet') return <Type size={14} />;
+  if (option === 'triangle') return <span className="h-0 w-0 border-x-[7px] border-b-[12px] border-x-transparent border-b-current" />;
+  if (option === 'hexagon') return <span className="h-4 w-4 bg-current [clip-path:polygon(25%_6%,75%_6%,100%_50%,75%_94%,25%_94%,0_50%)]" />;
+  if (option === 'rhombus') return <span className="h-4 w-4 rotate-45 rounded-[2px] bg-current" />;
   return <span className="px-2">{option}</span>;
 };
 
@@ -267,7 +270,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     }
 
     if (config.type === 'select') {
-      const isIconSelect = config.options?.every((option) => ['arrow', 'dot', 'square', 'number', 'alphabet'].includes(option));
+      const isIconSelect = config.options?.every((option) => ['arrow', 'dot', 'square', 'number', 'alphabet', 'triangle', 'hexagon', 'rhombus'].includes(option));
       return (
         <div key={key} className={isIconSelect ? 'flex min-w-fit shrink-0 items-end' : 'w-[190px] shrink-0'}>
           {!isIconSelect && <div className="mb-2 text-[8px] font-black uppercase text-white/45">{label}</div>}
@@ -316,10 +319,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   return (
     <div className="flex w-full flex-col gap-2 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="rounded-[18px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
-        {renderEffectMenu()}
-      </div>
-
-      <div className="rounded-[18px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
         {renderGlobalMenu()}
       </div>
 
@@ -367,6 +366,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             </button>
           </div>
         </div>
+      </div>
+
+      <div className="rounded-[18px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+        {renderEffectMenu()}
       </div>
     </div>
   );

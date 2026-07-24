@@ -132,7 +132,6 @@ export const EFFECTS: EffectDef[] = [
       direction: 'horizontal',
       threshold: 0.34,
       sortLength: 0.62,
-      blockSize: 14,
       noise: 0.34,
       speed: 1.6,
       stretchAmount: 0.85,
@@ -142,7 +141,6 @@ export const EFFECTS: EffectDef[] = [
       direction: { type: 'select', options: ['horizontal', 'vertical', 'radial'] },
       threshold: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.2, 0.5] },
       sortLength: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.35, 0.8] },
-      blockSize: { type: 'slider', min: 2, max: 64, step: 1, randomRange: [8, 22] },
       stretchAmount: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.45, 1] },
     },
   },
@@ -156,7 +154,6 @@ export const EFFECTS: EffectDef[] = [
     defaultParams: {
       timeDepth: 0.8,
       direction: 'horizontal',
-      scanWidth: 0.16,
       delay: 0.36,
       repeat: 4,
       wave: 0.7,
@@ -166,7 +163,6 @@ export const EFFECTS: EffectDef[] = [
     paramConfig: {
       timeDepth: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.5, 1] },
       direction: { type: 'select', options: ['horizontal', 'vertical', 'radial'] },
-      scanWidth: { type: 'slider', min: 0.02, max: 0.6, step: 0.01, randomRange: [0.08, 0.3] },
       delay: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.18, 0.55] },
       wave: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.35, 0.9] },
     },
@@ -204,11 +200,12 @@ export const EFFECTS: EffectDef[] = [
       recursive: 2,
       wireframe: false,
       shape: 'triangle',
-      displacement: 15
+      displacement: 9
     },
     paramConfig: {
       gridSize: { type: 'slider', min: 10, max: 60, step: 1, randomRange: [15, 35] },
       recursive: { type: 'slider', min: 0, max: 4, step: 1, randomRange: [1, 3] },
+      wireframe: { type: 'toggle' },
       shape: { type: 'select', options: ['triangle', 'hexagon', 'rhombus'] },
       displacement: { type: 'slider', min: 0, max: 100, step: 1, randomRange: [10, 40] },
     },
@@ -259,12 +256,12 @@ export const EFFECTS: EffectDef[] = [
     status: 'Complete',
     gpuLoad: 'Low',
     defaultParams: {
-      dotSize: 21,
+      dotSize: 42,
       dotSizeRandom: 0.5,
       angle: 45,
     },
     paramConfig: {
-      dotSize: { type: 'slider', min: 2, max: 40, step: 1, randomRange: [5, 20] },
+      dotSize: { type: 'slider', min: 4, max: 80, step: 1, randomRange: [10, 40] },
       dotSizeRandom: { type: 'slider', min: 0, max: 1, step: 0.05, randomRange: [0.1, 0.5] },
       angle: { type: 'slider', min: 0, max: 180, step: 1, randomRange: [15, 75] },
     },
@@ -290,7 +287,10 @@ export const EFFECTS: EffectDef[] = [
       pointCount: { type: 'slider', min: 50, max: 600, step: 10, randomRange: [150, 400] },
       linkDistance: { type: 'slider', min: 10, max: 150, step: 5, randomRange: [40, 90] },
       lineWidth: { type: 'slider', min: 0.2, max: 5, step: 0.1, randomRange: [0.5, 1.5] },
+      pointSize: { type: 'slider', min: 1, max: 10, step: 0.5, randomRange: [3, 6] },
+      pointSizeRandom: { type: 'slider', min: 0, max: 1, step: 0.05, randomRange: [0.1, 0.5] },
       jitter: { type: 'slider', min: 0, max: 20, step: 0.1, randomRange: [1, 5] },
+      showNumbers: { type: 'toggle' },
     },
   },
   {
