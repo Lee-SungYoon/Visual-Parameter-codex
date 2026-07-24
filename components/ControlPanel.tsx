@@ -124,7 +124,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const renderEffectMenu = () => (
-    <div className="flex max-w-[calc(100vw-32px)] items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
+    <div className="flex max-w-[calc(100vw-25.6px)] items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
       {allEffects.map((effect) => {
         const isActive = activeEffect.id === effect.id;
         return (
@@ -183,7 +183,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const renderGlobalMenu = () => (
-    <div className="flex max-w-[calc(100vw-32px)] items-center justify-between gap-x-7 overflow-x-auto whitespace-nowrap pb-1">
+    <div className="flex max-w-[calc(100vw-25.6px)] items-center justify-between gap-x-7 overflow-x-auto whitespace-nowrap pb-1">
       <div className="flex shrink-0 items-center gap-x-7">
         <SlidersHorizontal size={16} className="text-white/35" />
         {renderColorSlider('hue', 'HUE', 0, 360, 'bg-[linear-gradient(90deg,#ff003c,#ffee00,#00ff73,#00d5ff,#332cff,#ff00c8,#ff003c)]')}
@@ -323,7 +323,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         {renderGlobalMenu()}
       </div>
 
-      <div className="max-w-[calc(100vw-32px)] overflow-x-auto rounded-[18px] border border-white/10 bg-zinc-950/55 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+      <div className="max-w-[calc(100vw-25.6px)] overflow-x-auto rounded-[18px] border border-white/10 bg-zinc-950/55 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
         <div className="flex min-w-max items-center justify-between gap-6">
           <div className="flex shrink-0 items-center gap-4">
             {(Object.entries(activeEffect.paramConfig) as [string, ParamConfig][]).map(renderParamControl)}
