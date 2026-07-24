@@ -373,7 +373,10 @@ void main() {
     vec3 feedback = (echoA + echoB + echoC) / 3.0;
     float bright = smoothstep(0.35, 1.0, dot(feedback, vec3(0.299, 0.587, 0.114)));
     float focus = trackedMask(uv, 0.16);
-    color = mix(color, feedback * (1.0 - decay * 0.45) + u_color * bright * glow, trail * (0.35 + focus * 0.85));
+    float shadow = 1.0 - smoothstep(0.08, 0.42, dot(feedback, vec3(0.299, 0.587, 0.114)));
+    vec3 invertedTrail = mix(1.0 - originalColor, 1.0 - feedback, 0.55);
+    vec3 trailBase = mix(feedback, invertedTrail, shadow * (0.55 + decay * 0.35));
+    color = mix(color, trailBase * (1.0 - decay * 0.18) + u_color * bright * glow, trail * (0.35 + focus * 0.85));
   } else if (u_effect == 12) {
     float amount = u_params[0];
     float direction = u_params[1];
