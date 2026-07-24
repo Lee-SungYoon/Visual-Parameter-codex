@@ -322,13 +322,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
       if (isCleanFeed && mediaLoaded) {
         const source = isVideo ? sourceVideoRef.current : sourceImageRef.current;
         if (source) {
-          const sw = isVideo ? (source as HTMLVideoElement).videoWidth : (source as HTMLImageElement).naturalWidth;
-          const sh = isVideo ? (source as HTMLVideoElement).videoHeight : (source as HTMLImageElement).naturalHeight;
-          if (sw === 0) return;
-          const sAspect = sw / sh;
-          const uH = windowH;
-          const uW = windowH * sAspect;
-          setUnitSize({ w: Math.floor(uW), h: Math.floor(uH) });
+          setUnitSize({ w: Math.floor(windowW / 2), h: windowH });
           setCanvasSize({ w: windowW, h: windowH });
           return;
         }
@@ -462,7 +456,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
           } else if (!TRACKED_EFFECTS.has(activeEffect.id) && globalParams.target === 'entire') {
             detectionBoxesRef.current = [];
           }
-          const renderEffect = globalParams.effectEnabled && globalParams.previewMode !== 'original';
+          const renderEffect = globalParams.effectEnabled && (isCleanFeed || globalParams.previewMode !== 'original');
           if (renderEffect && shaderRendererRef.current) {
             renderShaderFrame(shaderRendererRef.current, source, activeEffect.id, effectParams, globalParams, elapsed, detectionBoxesRef.current);
           } else if (renderEffect) {
@@ -482,21 +476,15 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
             displayCtx.translate(-canvasSize.w / 2, -canvasSize.h / 2);
           }
           if (isCleanFeed) {
-            const centerX = canvasSize.w / 2;
-            const unitW = unitSize.w;
-            const unitH = unitSize.h;
-            const centralStartX = centerX - unitW / 2;
-            let currentX = centralStartX;
-            while (currentX + unitW > 0) {
-              displayCtx.drawImage(internalCanvas, 0, 0, procW, procH, currentX, 0, unitW, unitH);
-              currentX -= unitW;
+            const halfW = canvasSize.w / 2;
+            drawCoverSource(displayCtx, source, 0, 0, halfW, canvasSize.h);
+            if (renderEffect) {
+              displayCtx.drawImage(internalCanvas, 0, 0, procW, procH, halfW, 0, halfW, canvasSize.h);
+            } else {
+              drawCoverSource(displayCtx, source, halfW, 0, halfW, canvasSize.h);
             }
-            currentX = centralStartX + unitW;
-            while (currentX < canvasSize.w) {
-              displayCtx.drawImage(internalCanvas, 0, 0, procW, procH, currentX, 0, unitW, unitH);
-              currentX += unitW;
-            }
-            displayCtx.drawImage(internalCanvas, 0, 0, procW, procH, centralStartX, 0, unitW, unitH);
+            displayCtx.fillStyle = 'rgba(255,255,255,0.85)';
+            displayCtx.fillRect(halfW - 1, 0, 2, canvasSize.h);
           } else {
             if (renderEffect) {
               displayCtx.drawImage(internalCanvas, 0, 0, procW, procH, 0, 0, unitSize.w, unitSize.h);
