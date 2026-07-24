@@ -945,6 +945,12 @@ export interface DetectionBox {
   height: number;
 }
 
+export interface ColorModeWeights {
+  bw: number;
+  invert: number;
+  thermal: number;
+}
+
 export const renderShaderFrame = (
   renderer: ShaderRenderer,
   source: SourceElement,
@@ -952,7 +958,8 @@ export const renderShaderFrame = (
   effectParams: any,
   globalParams: GlobalParams,
   elapsed: number,
-  detectionBoxes: DetectionBox[] = []
+  detectionBoxes: DetectionBox[] = [],
+  colorModeWeights?: ColorModeWeights
 ) => {
   const { gl, canvas, program, texture } = renderer;
   const sourceSize = getSourceSize(source);
@@ -996,9 +1003,9 @@ export const renderShaderFrame = (
   );
   gl.uniform4f(
     renderer.flagsLocation,
-    globalParams.bw ? 1 : 0,
-    globalParams.invert || globalParams.xray ? 1 : 0,
-    globalParams.thermal ? 1 : 0,
+    colorModeWeights?.bw ?? (globalParams.bw ? 1 : 0),
+    colorModeWeights?.invert ?? (globalParams.invert || globalParams.xray ? 1 : 0),
+    colorModeWeights?.thermal ?? (globalParams.thermal ? 1 : 0),
     globalParams.animationMode === 'float'
       ? 1
       : globalParams.animationMode === 'pulse'

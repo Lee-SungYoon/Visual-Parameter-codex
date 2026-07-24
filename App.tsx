@@ -162,7 +162,7 @@ const App: React.FC = () => {
         }));
       };
       mix();
-      interval = setInterval(mix, 2500);
+      interval = setInterval(mix, 4500);
     }
     return () => clearInterval(interval);
   }, [globalParams.mixMode, isOnAirView]);

@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
 import { GlobalParams, EffectDef, PlaybackState } from '../types';
-import { createShaderRenderer, DetectionBox, disposeShaderRenderer, renderShaderFrame } from '../services/webglShaderEngine';
+import { ColorModeWeights, createShaderRenderer, DetectionBox, disposeShaderRenderer, renderShaderFrame } from '../services/webglShaderEngine';
 import { renderFrame } from '../services/renderEngine';
 import { ImageSegmenter, FilesetResolver, ObjectDetector } from '@mediapipe/tasks-vision';
 
@@ -55,6 +55,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   const startTimeRef = useRef<number>(Date.now());
   const lastMaskRef = useRef<ImageData | null>(null);
   const detectionBoxesRef = useRef<DetectionBox[]>([]);
+  const colorModeWeightsRef = useRef<ColorModeWeights>({ bw: 0, invert: 0, thermal: 0 });
   const frameCountRef = useRef<number>(0);
   const lastPlaybackStateRef = useRef<PlaybackState>({
     isPlaying: false,
@@ -482,9 +483,17 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
           } else if (!TRACKED_EFFECTS.has(activeEffect.id) && globalParams.target === 'entire') {
             detectionBoxesRef.current = [];
           }
+          const colorModeTarget = {
+            bw: globalParams.bw ? 1 : 0,
+            invert: globalParams.invert || globalParams.xray ? 1 : 0,
+            thermal: globalParams.thermal ? 1 : 0,
+          };
+          colorModeWeightsRef.current.bw += (colorModeTarget.bw - colorModeWeightsRef.current.bw) * 0.055;
+          colorModeWeightsRef.current.invert += (colorModeTarget.invert - colorModeWeightsRef.current.invert) * 0.055;
+          colorModeWeightsRef.current.thermal += (colorModeTarget.thermal - colorModeWeightsRef.current.thermal) * 0.055;
           const renderEffect = globalParams.effectEnabled && (isCleanFeed || globalParams.previewMode !== 'original');
           if (renderEffect && shaderRendererRef.current) {
-            renderShaderFrame(shaderRendererRef.current, source, activeEffect.id, effectParams, globalParams, elapsed, detectionBoxesRef.current);
+            renderShaderFrame(shaderRendererRef.current, source, activeEffect.id, effectParams, globalParams, elapsed, detectionBoxesRef.current, colorModeWeightsRef.current);
           } else if (renderEffect) {
             const fallbackCtx = internalCanvas.getContext('2d');
             if (fallbackCtx) {
@@ -495,12 +504,6 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
           }
           displayCtx.clearRect(0, 0, canvasSize.w, canvasSize.h);
           displayCtx.save();
-          if (trackingOffsetRef.current.scale > 1.01) {
-            displayCtx.translate(trackingOffsetRef.current.x / scale, trackingOffsetRef.current.y / scale);
-            displayCtx.translate(canvasSize.w / 2, canvasSize.h / 2);
-            displayCtx.scale(trackingOffsetRef.current.scale, trackingOffsetRef.current.scale);
-            displayCtx.translate(-canvasSize.w / 2, -canvasSize.h / 2);
-          }
           if (isCleanFeed) {
             const halfW = canvasSize.w / 2;
             drawCoverSource(displayCtx, source, 0, 0, halfW, canvasSize.h);
