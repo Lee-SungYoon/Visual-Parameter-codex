@@ -30,6 +30,9 @@ const App: React.FC = () => {
   const rendererRef = useRef<CanvasRendererHandle>(null);
   const onAirRendererRef = useRef<CanvasRendererHandle>(null);
   const navigatorHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeEffectRef = useRef(activeEffect);
+  const effectParamsRef = useRef(effectParams);
+  const globalParamsRef = useRef(globalParams);
   const syncChannel = useMemo(() => new BroadcastChannel('visual-parameter-sync'), []);
 
   const isOnAirView = new URLSearchParams(window.location.search).get('view') === 'onair';
@@ -81,6 +84,12 @@ const App: React.FC = () => {
 
     return () => { syncChannel.onmessage = null; };
   }, [isOnAirView, syncChannel, mediaSrc, isVideo, globalParams, activeEffect, effectParams]);
+
+  useEffect(() => {
+    activeEffectRef.current = activeEffect;
+    effectParamsRef.current = effectParams;
+    globalParamsRef.current = globalParams;
+  }, [activeEffect, effectParams, globalParams]);
 
   useEffect(() => {
     if (isOnAirView) return;
@@ -139,20 +148,43 @@ const App: React.FC = () => {
     let interval: ReturnType<typeof setInterval>;
     if (globalParams.mixMode && !isOnAirView) {
       const mix = () => {
-        const randomEffect = EFFECTS[Math.floor(Math.random() * EFFECTS.length)];
-        setActiveEffect(randomEffect);
+        const currentEffect = activeEffectRef.current;
+        const randomEffect = Math.random() < 0.58 ? currentEffect : EFFECTS[Math.floor(Math.random() * EFFECTS.length)];
+        const currentParams = effectParamsRef.current;
         const newParams: Record<string, number | string | boolean> = {};
         (Object.entries(randomEffect.paramConfig) as [string, ParamConfig][]).forEach(([key, config]) => {
-           if (config.randomRange) {
-               newParams[key] = config.step && config.step % 1 === 0 
-                ? randomInt(config.randomRange[0], config.randomRange[1])
-                : parseFloat(randomFloat(config.randomRange[0], config.randomRange[1]).toFixed(2));
-           } else {
-               newParams[key] = randomEffect.defaultParams[key];
-           }
+          const currentValue = currentEffect.id === randomEffect.id ? currentParams[key] : undefined;
+          const defaultValue = randomEffect.defaultParams[key];
+
+          if (config.type === 'slider') {
+            const min = config.min ?? config.randomRange?.[0] ?? 0;
+            const max = config.max ?? config.randomRange?.[1] ?? 1;
+            const step = config.step ?? 0.01;
+            const base = typeof currentValue === 'number'
+              ? currentValue
+              : typeof defaultValue === 'number'
+                ? defaultValue
+                : (min + max) / 2;
+            const drift = (max - min) * 0.16;
+            const rawValue = Math.max(min, Math.min(max, base + randomFloat(-drift, drift)));
+            const steppedValue = Math.round(rawValue / step) * step;
+            newParams[key] = Number(steppedValue.toFixed(step < 1 ? 3 : 0));
+          } else if (config.type === 'select') {
+            const options = config.options || [];
+            const base = typeof currentValue === 'string' && options.includes(currentValue) ? currentValue : defaultValue;
+            newParams[key] = Math.random() < 0.72 && typeof base === 'string' ? base : options[randomInt(0, Math.max(0, options.length - 1))];
+          } else if (config.type === 'toggle') {
+            const base = typeof currentValue === 'boolean' ? currentValue : Boolean(defaultValue);
+            newParams[key] = Math.random() < 0.78 ? base : !base;
+          } else {
+            newParams[key] = defaultValue;
+          }
         });
+        setActiveEffect(randomEffect);
         setEffectParams(newParams);
-        const colorMode = randomInt(0, 4);
+        const currentGlobal = globalParamsRef.current;
+        const activeColorMode = currentGlobal.bw ? 1 : currentGlobal.xray ? 2 : currentGlobal.thermal ? 3 : currentGlobal.invert ? 4 : 0;
+        const colorMode = Math.random() < 0.68 ? activeColorMode : randomInt(0, 4);
         setGlobalParams(prev => ({
           ...prev,
           bw: colorMode === 1,
@@ -162,7 +194,7 @@ const App: React.FC = () => {
         }));
       };
       mix();
-      interval = setInterval(mix, 4500);
+      interval = setInterval(mix, 3500);
     }
     return () => clearInterval(interval);
   }, [globalParams.mixMode, isOnAirView]);
