@@ -18,6 +18,7 @@ interface ShaderRenderer {
   globalLocation: WebGLUniformLocation | null;
   commonLocation: WebGLUniformLocation | null;
   flagsLocation: WebGLUniformLocation | null;
+  lookLocation: WebGLUniformLocation | null;
   colorLocation: WebGLUniformLocation | null;
   boxCountLocation: WebGLUniformLocation | null;
   boxesLocation: WebGLUniformLocation | null;
@@ -73,6 +74,7 @@ uniform float u_params[10];
 uniform vec4 u_global;
 uniform vec4 u_common;
 uniform vec4 u_flags;
+uniform vec4 u_lookFlags;
 uniform vec3 u_color;
 uniform int u_boxCount;
 uniform vec4 u_boxes[8];
@@ -669,9 +671,26 @@ void main() {
 
   color += exposure;
   color = (color - 0.5) * contrast + 0.5;
-  color = mix(color, vec3(luma), u_flags.x);
-  color = mix(color, 1.0 - color, u_flags.y);
+  float postLuma = dot(color, vec3(0.299, 0.587, 0.114));
+  vec2 postPx = 1.0 / u_resolution;
+  float postEdge = length(sampleSource(uv + vec2(postPx.x, 0.0)).rgb - sampleSource(uv - vec2(postPx.x, 0.0)).rgb);
+  postEdge += length(sampleSource(uv + vec2(0.0, postPx.y)).rgb - sampleSource(uv - vec2(0.0, postPx.y)).rgb);
+  vec3 xrayColor = vec3(0.015, 0.09, 0.13) + vec3(0.18, 0.82, 1.0) * pow(1.0 - postLuma, 1.65);
+  xrayColor += vec3(0.6, 0.95, 1.0) * smoothstep(0.045, 0.24, postEdge) * 0.95;
+  vec3 solarColor = vec3(
+    smoothstep(0.08, 0.95, postLuma) * 1.18,
+    smoothstep(0.22, 0.84, postLuma) * 0.58,
+    smoothstep(0.72, 1.0, postLuma) * 0.25
+  );
+  vec3 chromeColor = mix(vec3(postLuma * 0.18, postLuma * 0.34, postLuma * 0.42), vec3(0.65, 0.9, 1.0), smoothstep(0.48, 1.0, postLuma));
+  chromeColor = mix(chromeColor, vec3(0.02, 0.025, 0.04), smoothstep(0.12, 0.0, postLuma));
+  color = mix(color, solarColor, u_lookFlags.y);
+  color = mix(color, chromeColor, u_lookFlags.z);
   color = mix(color, thermal(color), u_flags.z);
+  color = mix(color, xrayColor, u_lookFlags.x);
+  color = mix(color, 1.0 - color, u_flags.y);
+  float bwLuma = dot(color, vec3(0.299, 0.587, 0.114));
+  color = mix(color, vec3(bwLuma), u_flags.x);
   color += (hash(v_uv * u_time * 180.0) - 0.5) * grain * 0.12;
   float vig = smoothstep(0.95, 0.18, length(v_uv - 0.5));
   color *= mix(1.0, vig, vignette);
@@ -699,6 +718,16 @@ void main() {
   color = mix(originalColor, blended, effectAmount);
   float originalMix = u_effect == 2 ? 0.0 : (sourceTransform > 0.5 ? clamp(u_common.y, 0.0, 0.18) : clamp(u_common.y, 0.0, 1.0));
   color = mix(color, originalColor, originalMix);
+  float finalLuma = dot(color, vec3(0.299, 0.587, 0.114));
+  vec3 finalXray = vec3(0.01, 0.08, 0.12) + vec3(0.2, 0.86, 1.0) * pow(1.0 - finalLuma, 1.7);
+  finalXray += vec3(0.55, 0.95, 1.0) * smoothstep(0.045, 0.24, postEdge);
+  color = mix(color, solarColor, u_lookFlags.y);
+  color = mix(color, chromeColor, u_lookFlags.z);
+  color = mix(color, thermal(color), u_flags.z);
+  color = mix(color, finalXray, u_lookFlags.x);
+  color = mix(color, 1.0 - color, u_flags.y);
+  finalLuma = dot(color, vec3(0.299, 0.587, 0.114));
+  color = mix(color, vec3(finalLuma), u_flags.x);
 
   gl_FragColor = vec4(clamp(color, 0.0, 1.0), base.a);
 }
@@ -794,6 +823,7 @@ export const createShaderRenderer = (canvas: HTMLCanvasElement): ShaderRenderer 
   globalLocation: gl.getUniformLocation(program, 'u_global'),
   commonLocation: gl.getUniformLocation(program, 'u_common'),
   flagsLocation: gl.getUniformLocation(program, 'u_flags'),
+  lookLocation: gl.getUniformLocation(program, 'u_lookFlags'),
     colorLocation: gl.getUniformLocation(program, 'u_color'),
     boxCountLocation: gl.getUniformLocation(program, 'u_boxCount'),
     boxesLocation: gl.getUniformLocation(program, 'u_boxes'),
@@ -961,8 +991,11 @@ export interface DetectionBox {
 
 export interface ColorModeWeights {
   bw: number;
+  xray: number;
   invert: number;
   thermal: number;
+  warm: number;
+  cool: number;
 }
 
 export const renderShaderFrame = (
@@ -1018,7 +1051,7 @@ export const renderShaderFrame = (
   gl.uniform4f(
     renderer.flagsLocation,
     colorModeWeights?.bw ?? (globalParams.bw ? 1 : 0),
-    colorModeWeights?.invert ?? (globalParams.invert || globalParams.xray ? 1 : 0),
+    colorModeWeights?.invert ?? (globalParams.invert ? 1 : 0),
     colorModeWeights?.thermal ?? (globalParams.thermal ? 1 : 0),
     globalParams.animationMode === 'float'
       ? 1
@@ -1031,6 +1064,13 @@ export const renderShaderFrame = (
             : globalParams.animationMode === 'scan'
               ? 5
               : 0
+  );
+  gl.uniform4f(
+    renderer.lookLocation,
+    colorModeWeights?.xray ?? (globalParams.xray ? 1 : 0),
+    colorModeWeights?.warm ?? (globalParams.dramaticWarm ? 1 : 0),
+    colorModeWeights?.cool ?? (globalParams.dramaticCool ? 1 : 0),
+    0
   );
   gl.uniform3fv(renderer.colorLocation, new Float32Array(hexToRgb(globalParams.effectColor)));
   const boxes = new Float32Array(8 * 4);

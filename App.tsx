@@ -183,14 +183,28 @@ const App: React.FC = () => {
         setActiveEffect(randomEffect);
         setEffectParams(newParams);
         const currentGlobal = globalParamsRef.current;
-        const activeColorMode = currentGlobal.bw ? 1 : currentGlobal.xray ? 2 : currentGlobal.thermal ? 3 : currentGlobal.invert ? 4 : 0;
-        const colorMode = Math.random() < 0.68 ? activeColorMode : randomInt(0, 4);
+        const activeColorMode = currentGlobal.bw
+          ? 1
+          : currentGlobal.xray
+            ? 2
+            : currentGlobal.thermal
+              ? 3
+              : currentGlobal.invert
+                ? 4
+                : currentGlobal.dramaticWarm
+                  ? 5
+                  : currentGlobal.dramaticCool
+                    ? 6
+                    : 0;
+        const colorMode = Math.random() < 0.68 ? activeColorMode : randomInt(0, 6);
         setGlobalParams(prev => ({
           ...prev,
           bw: colorMode === 1,
           xray: colorMode === 2,
           thermal: colorMode === 3,
           invert: colorMode === 4,
+          dramaticWarm: colorMode === 5,
+          dramaticCool: colorMode === 6,
         }));
       };
       mix();

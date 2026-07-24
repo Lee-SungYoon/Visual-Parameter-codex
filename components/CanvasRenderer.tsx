@@ -55,7 +55,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   const startTimeRef = useRef<number>(Date.now());
   const lastMaskRef = useRef<ImageData | null>(null);
   const detectionBoxesRef = useRef<DetectionBox[]>([]);
-  const colorModeWeightsRef = useRef<ColorModeWeights>({ bw: 0, invert: 0, thermal: 0 });
+  const colorModeWeightsRef = useRef<ColorModeWeights>({ bw: 0, xray: 0, invert: 0, thermal: 0, warm: 0, cool: 0 });
   const frameCountRef = useRef<number>(0);
   const lastPlaybackStateRef = useRef<PlaybackState>({
     isPlaying: false,
@@ -485,12 +485,18 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
           }
           const colorModeTarget = {
             bw: globalParams.bw ? 1 : 0,
-            invert: globalParams.invert || globalParams.xray ? 1 : 0,
+            xray: globalParams.xray ? 1 : 0,
+            invert: globalParams.invert ? 1 : 0,
             thermal: globalParams.thermal ? 1 : 0,
+            warm: globalParams.dramaticWarm ? 1 : 0,
+            cool: globalParams.dramaticCool ? 1 : 0,
           };
           colorModeWeightsRef.current.bw += (colorModeTarget.bw - colorModeWeightsRef.current.bw) * 0.055;
+          colorModeWeightsRef.current.xray += (colorModeTarget.xray - colorModeWeightsRef.current.xray) * 0.055;
           colorModeWeightsRef.current.invert += (colorModeTarget.invert - colorModeWeightsRef.current.invert) * 0.055;
           colorModeWeightsRef.current.thermal += (colorModeTarget.thermal - colorModeWeightsRef.current.thermal) * 0.055;
+          colorModeWeightsRef.current.warm += (colorModeTarget.warm - colorModeWeightsRef.current.warm) * 0.055;
+          colorModeWeightsRef.current.cool += (colorModeTarget.cool - colorModeWeightsRef.current.cool) * 0.055;
           const renderEffect = globalParams.effectEnabled && (isCleanFeed || globalParams.previewMode !== 'original');
           if (renderEffect && shaderRendererRef.current) {
             renderShaderFrame(shaderRendererRef.current, source, activeEffect.id, effectParams, globalParams, elapsed, detectionBoxesRef.current, colorModeWeightsRef.current);

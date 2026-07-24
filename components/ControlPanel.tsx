@@ -82,6 +82,11 @@ const MODE_BUTTONS = [
   { label: 'Invert', key: 'invert' },
 ] as const;
 
+const PRESET_BUTTONS = [
+  { label: 'Solar', key: 'dramaticWarm' },
+  { label: 'Chrome', key: 'dramaticCool' },
+] as const;
+
 const TARGET_BUTTONS = [
   { label: 'SUBJECT', value: 'subject' },
   { label: 'BG', value: 'background' },
@@ -175,8 +180,41 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     return (
       <button
         key={key}
-        onClick={() => updateGlobal(key, !active)}
+        onClick={() => setGlobalParams({
+          ...globalParams,
+          bw: false,
+          xray: false,
+          thermal: false,
+          invert: false,
+          dramaticWarm: false,
+          dramaticCool: false,
+          [key]: !active,
+        })}
         className={`h-9 rounded-full border px-6 text-[9px] font-black transition ${
+          active ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/70 hover:border-white/35 hover:bg-white/15'
+        }`}
+      >
+        {label}
+      </button>
+    );
+  };
+
+  const renderPresetButton = ({ label, key }: (typeof PRESET_BUTTONS)[number]) => {
+    const active = Boolean(globalParams[key]);
+    const otherKey = key === 'dramaticWarm' ? 'dramaticCool' : 'dramaticWarm';
+    return (
+      <button
+        key={key}
+        onClick={() => setGlobalParams({
+          ...globalParams,
+          bw: false,
+          xray: false,
+          thermal: false,
+          invert: false,
+          [otherKey]: false,
+          [key]: !active,
+        })}
+        className={`h-9 rounded-full border px-5 text-[9px] font-black transition ${
           active ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/70 hover:border-white/35 hover:bg-white/15'
         }`}
       >
@@ -203,6 +241,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         <div className="hidden h-9 w-px bg-white/10 lg:block" />
         <div className="flex items-center gap-2">
           {MODE_BUTTONS.map(renderModeButton)}
+          {PRESET_BUTTONS.map(renderPresetButton)}
         </div>
       </div>
 
