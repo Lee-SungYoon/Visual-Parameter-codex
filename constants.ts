@@ -191,7 +191,7 @@ export const EFFECTS: EffectDef[] = [
   {
     id: 'geometry',
     name: 'GEOMETRY',
-    description: 'Recursive polygon tessellation and mesh grid',
+    description: 'Luminance-driven recursive tessellation mesh',
     category: 'reference_effect',
     status: 'Complete',
     gpuLoad: 'Medium',
@@ -200,7 +200,7 @@ export const EFFECTS: EffectDef[] = [
       recursive: 2,
       wireframe: false,
       shape: 'triangle',
-      displacement: 9
+      displacement: 35
     },
     paramConfig: {
       gridSize: { type: 'slider', min: 10, max: 60, step: 1, randomRange: [15, 35] },
@@ -251,7 +251,7 @@ export const EFFECTS: EffectDef[] = [
   {
     id: 'halftone',
     name: 'HALFTONE',
-    description: 'Dynamic dot pattern shading',
+    description: 'Luminance-reactive pop-art halftone dot matrix',
     category: 'reference_effect',
     status: 'Complete',
     gpuLoad: 'Low',
@@ -269,7 +269,7 @@ export const EFFECTS: EffectDef[] = [
   {
     id: 'plexus',
     name: 'PLEXUS',
-    description: 'Vector-style network connectivity with technical guides',
+    description: 'Tracked cyberpunk proximity particle network',
     category: 'reference_effect',
     status: 'Complete',
     gpuLoad: 'Medium',
@@ -284,6 +284,7 @@ export const EFFECTS: EffectDef[] = [
       showNumbers: true,
     },
     paramConfig: {
+      shapeType: { type: 'select', options: ['dot', 'square', 'arrow', 'number', 'alphabet'] },
       pointCount: { type: 'slider', min: 50, max: 600, step: 10, randomRange: [150, 400] },
       linkDistance: { type: 'slider', min: 10, max: 150, step: 5, randomRange: [40, 90] },
       lineWidth: { type: 'slider', min: 0.2, max: 5, step: 0.1, randomRange: [0.5, 1.5] },
@@ -312,6 +313,16 @@ export const EFFECTS: EffectDef[] = [
       thickness: { type: 'slider', min: 1, max: 50, step: 1, randomRange: [4, 15] },
       threshold: { type: 'slider', min: 0, max: 255, step: 1, randomRange: [30, 120] },
     },
+  },
+  {
+    id: 'none',
+    name: 'Original',
+    description: 'Original source video',
+    category: 'video_effect',
+    status: 'Complete',
+    gpuLoad: 'Low',
+    defaultParams: {},
+    paramConfig: {},
   },
 ];
 

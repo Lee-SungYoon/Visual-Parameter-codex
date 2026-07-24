@@ -149,7 +149,10 @@ const App: React.FC = () => {
     if (globalParams.mixMode && !isOnAirView) {
       const mix = () => {
         const currentEffect = activeEffectRef.current;
-        const randomEffect = Math.random() < 0.58 ? currentEffect : EFFECTS[Math.floor(Math.random() * EFFECTS.length)];
+        const mixableEffects = EFFECTS.filter(effect => effect.id !== 'none');
+        const randomEffect = Math.random() < 0.58 && currentEffect.id !== 'none'
+          ? currentEffect
+          : mixableEffects[Math.floor(Math.random() * mixableEffects.length)];
         const currentParams = effectParamsRef.current;
         const newParams: Record<string, number | string | boolean> = {};
         (Object.entries(randomEffect.paramConfig) as [string, ParamConfig][]).forEach(([key, config]) => {

@@ -251,6 +251,13 @@ float objectGlyph(vec2 local, vec2 cellId, float shapeType) {
   return max(max(stem, cross), diag);
 }
 
+float sdSegment(vec2 p, vec2 a, vec2 b) {
+  vec2 pa = p - a;
+  vec2 ba = b - a;
+  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 0.0001), 0.0, 1.0);
+  return length(pa - ba * h);
+}
+
 void main() {
   vec2 uv = coverUv(v_uv);
   vec2 effectUv = uv;
@@ -275,10 +282,21 @@ void main() {
   } else if (u_effect == 3) {
     vec2 c = trackedCenter();
     float subject = trackedMask(uv, 0.18);
-    vec2 p = (uv - c) * u_resolution / max(u_params[0], 8.0);
+    float gridSize = max(u_params[0], 8.0);
+    vec2 p = uv * u_resolution / gridSize;
+    vec2 cell = floor(p);
     vec2 local = fract(p) - 0.5;
-    float cellWave = sin((floor(p.x) * 1.37 + floor(p.y) * 1.91) + u_time * 0.85);
-    effectUv += normalize(local + vec2(0.0001)) * cellWave * u_params[3] * 0.0018 * (0.35 + subject);
+    vec2 sampleUv = (cell + 0.5) * gridSize / u_resolution;
+    float lum = dot(sampleSource(sampleUv).rgb, vec3(0.299, 0.587, 0.114));
+    float depth = pow(lum, 1.35) * u_params[3] / 100.0;
+    float recursive = clamp(u_params[1], 0.0, 4.0);
+    for (int i = 0; i < 4; i++) {
+      if (float(i) >= recursive) break;
+      vec2 subLocal = fract((local + 0.5) * pow(2.0, float(i) + 1.0)) - 0.5;
+      depth += (0.018 / (float(i) + 1.0)) * (1.0 - smoothstep(0.2, 0.55, length(subLocal))) * lum;
+    }
+    vec2 normalDir = normalize(local + (uv - c) * subject + vec2(0.0001));
+    effectUv += normalDir * depth * gridSize / u_resolution * (0.65 + subject * 0.55);
   } else if (u_effect == 4) {
     float edgeProbe = length(sampleSource(uv + vec2(0.002, 0.0)).rgb - sampleSource(uv - vec2(0.002, 0.0)).rgb);
     edgeProbe += length(sampleSource(uv + vec2(0.0, 0.002)).rgb - sampleSource(uv - vec2(0.0, 0.002)).rgb);
@@ -293,9 +311,9 @@ void main() {
     vec2 c = trackedCenter();
     float subject = trackedMask(uv, 0.2);
     float dotSize = max(u_params[0], 4.0);
-    vec2 grid = floor((uv + (uv - c) * subject * 0.025) * u_resolution / dotSize);
+    vec2 grid = floor((uv + (uv - c) * subject * 0.018) * u_resolution / dotSize);
     vec2 jitter = vec2(hash(grid), hash(grid + 4.7)) - 0.5;
-    effectUv += jitter * u_params[1] * dotSize / u_resolution * 0.75;
+    effectUv += jitter * u_params[1] * dotSize / u_resolution * 0.45;
   } else if (u_effect == 7) {
     vec2 c = trackedCenter();
     float subject = trackedMask(uv, 0.22);
@@ -434,24 +452,34 @@ void main() {
   } else if (u_effect == 3) {
     float gridSize = max(u_params[0], 8.0);
     float shapeMode = u_params[4];
-    vec2 c = trackedCenter();
-    vec2 p = (v_uv - c) * u_resolution / gridSize;
-    p += vec2(sin(u_time * 0.32), cos(u_time * 0.27)) * u_params[3] * 0.018;
+    vec2 p = v_uv * u_resolution / gridSize;
     vec2 cell = floor(p);
     vec2 local = fract(p) - 0.5;
-    float triLine = min(abs(local.y + local.x * 0.866), min(abs(local.y - local.x * 0.866), abs(local.y + 0.32)));
-    float hexLine = abs(length(local) - 0.32);
-    float rhombusLine = abs(abs(local.x) + abs(local.y) - 0.36);
-    float shapeLine = shapeMode < 0.5 ? triLine : (shapeMode < 1.5 ? hexLine : rhombusLine);
-    float wire = 1.0 - smoothstep(0.0, 0.026 + fwidth(shapeLine), shapeLine);
-    float fill = 1.0 - smoothstep(0.28, 0.38, length(local));
+    vec2 sampleUv = (cell + 0.5) * gridSize / u_resolution;
+    float cellLum = dot(sampleSource(sampleUv).rgb, vec3(0.299, 0.587, 0.114));
     float subject = trackedMask(v_uv, 0.14);
-    float pulse = 0.55 + 0.45 * sin(u_time * 2.0 + hash(cell) * 6.2831 + luma * 8.0);
-    float recursive = 1.0 + u_params[1] * 0.18;
-    float geo = u_params[2] > 0.5 ? wire : max(wire, fill * 0.22 * recursive);
-    vec3 cellTone = sampleSource(effectUv + normalize(local + vec2(0.0001)) * geo * 0.006).rgb;
-    vec3 shapedVideo = mix(cellTone * (0.72 + pulse * 0.35), cellTone * (0.95 + u_color * 0.55), geo);
-    color = mix(color, shapedVideo, geo * (0.65 + subject * 0.35));
+    float recursive = clamp(u_params[1], 0.0, 4.0);
+    float recursiveMask = 0.0;
+    for (int i = 0; i < 4; i++) {
+      if (float(i) >= recursive) break;
+      vec2 sub = fract((local + 0.5) * pow(2.0, float(i) + 1.0)) - 0.5;
+      float subLine = min(abs(sub.x), abs(sub.y));
+      recursiveMask = max(recursiveMask, 1.0 - smoothstep(0.0, 0.014 + fwidth(subLine), subLine));
+    }
+    float lift = clamp(cellLum + subject * 0.18, 0.0, 1.0);
+    float triLine = min(abs(local.y + local.x * 0.866), min(abs(local.y - local.x * 0.866), abs(local.y + 0.31 + lift * 0.08)));
+    float hexLine = abs(length(local) - (0.27 + lift * 0.13));
+    float rhombusLine = abs(abs(local.x) + abs(local.y) - (0.31 + lift * 0.16));
+    float shapeLine = shapeMode < 0.5 ? triLine : (shapeMode < 1.5 ? hexLine : rhombusLine);
+    float wire = 1.0 - smoothstep(0.0, 0.018 + fwidth(shapeLine), shapeLine);
+    float solidTri = 1.0 - smoothstep(0.22 + lift * 0.06, 0.42 + lift * 0.08, max(abs(local.x) * 0.82, abs(local.y + 0.05)));
+    float solidHex = 1.0 - smoothstep(0.26 + lift * 0.08, 0.44 + lift * 0.1, length(local));
+    float solidRhombus = 1.0 - smoothstep(0.3 + lift * 0.08, 0.48 + lift * 0.1, abs(local.x) + abs(local.y));
+    float solid = shapeMode < 0.5 ? solidTri : (shapeMode < 1.5 ? solidHex : solidRhombus);
+    float geo = u_params[2] > 0.5 ? max(wire, recursiveMask * 0.6) : max(wire * 0.35, solid * (0.24 + lift * 0.5) + recursiveMask * 0.18);
+    vec3 cellTone = sampleSource(effectUv + normalize(local + vec2(0.0001)) * geo * gridSize / u_resolution * 0.28).rgb;
+    vec3 relief = mix(cellTone * (0.55 + lift * 0.55), cellTone * (0.9 + u_color * 0.65), geo);
+    color = mix(color, relief, clamp(geo * (0.68 + subject * 0.3), 0.0, 1.0));
   } else if (u_effect == 4) {
     vec2 px = 1.0 / u_resolution;
     float edge = length(sampleSource(effectUv + vec2(px.x, 0.0)).rgb - sampleSource(effectUv - vec2(px.x, 0.0)).rgb);
@@ -487,21 +515,27 @@ void main() {
     float motionEdge = smoothstep(0.06, 0.26, edge);
     float angle = radians(u_params[2]);
     mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
-    vec2 motion = (v_uv - c) * subject * (0.035 + motionEdge * 0.055) + vec2(sin(u_time * 0.55), cos(u_time * 0.43)) * u_params[1] * 0.018;
+    mat2 invRot = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
+    vec2 motion = (v_uv - c) * subject * (0.026 + motionEdge * 0.04);
     vec2 halftoneGrid = rot * ((v_uv + motion) * u_resolution / dotSize);
+    vec2 sampleCell = floor(halftoneGrid) + 0.5;
+    vec2 sampleUv = invRot * sampleCell * dotSize / u_resolution - motion;
+    vec3 cellColor = sampleSource(clamp(sampleUv, vec2(0.0), vec2(1.0))).rgb;
+    float cellLuma = dot(cellColor, vec3(0.299, 0.587, 0.114));
     vec2 cell = fract(halftoneGrid) - 0.5;
     float cellHash = hash(floor(halftoneGrid));
-    float sizeClass = smoothstep(0.16, 0.88, luma + motionEdge * 0.35 + subject * 0.18);
-    float radius = mix(0.11, 0.36, sizeClass);
-    radius *= mix(1.0 - u_params[1] * 0.28, 1.0 + u_params[1] * 0.18, cellHash);
-    radius = clamp(radius, 0.09, 0.38);
-    float dot = 1.0 - smoothstep(radius, radius + 0.035, length(cell));
-    vec3 dotVideo = sampleSource(effectUv + cell * dotSize / u_resolution * dot * 0.28).rgb;
-    vec3 invertedDotVideo = 1.0 - dotVideo;
-    invertedDotVideo = mix(invertedDotVideo, invertedDotVideo * (0.82 + u_color * 0.38), motionEdge * 0.35);
-    color = mix(color, invertedDotVideo, dot * (0.82 + subject * 0.12 + motionEdge * 0.18));
+    float wave = sin(u_time + sampleCell.x * 0.05 + sampleCell.y * 0.03) * 0.5 + 0.5;
+    float noiseFactor = mix(1.0, mix(0.55, 1.35, wave) * mix(0.82, 1.18, cellHash), clamp(u_params[1], 0.0, 1.0));
+    float radius = clamp(0.5 * cellLuma * noiseFactor, 0.015, 0.48);
+    radius = mix(radius, min(radius * 1.28, 0.49), subject * 0.22 + motionEdge * 0.26);
+    float dot = 1.0 - smoothstep(radius, radius + max(fwidth(length(cell)), 0.012), length(cell));
+    vec3 invertedDotVideo = 1.0 - cellColor;
+    vec3 graphicColor = mix(invertedDotVideo, invertedDotVideo * (0.72 + u_color * 0.72), 0.58 + motionEdge * 0.28);
+    vec3 paperTone = color * (0.86 - dot * 0.18);
+    color = mix(paperTone, graphicColor, dot * (0.9 + subject * 0.08));
   } else if (u_effect == 7) {
     float density = mix(18.0, 95.0, clamp(u_params[1] / 600.0, 0.0, 1.0));
+    float shapeType = u_params[0];
     vec2 c = trackedCenter();
     float subject = trackedMask(v_uv, 0.22);
     vec2 px = 1.0 / u_resolution;
@@ -509,18 +543,44 @@ void main() {
     edge += length(sampleSource(effectUv + vec2(0.0, px.y)).rgb - sampleSource(effectUv - vec2(0.0, px.y)).rgb);
     edge += length(sampleSource(effectUv + px).rgb - sampleSource(effectUv - px).rgb) * 0.35;
     float movingEdge = smoothstep(0.045, 0.22, edge) * (0.35 + subject * 0.65);
-    vec2 flow = (v_uv - c) * movingEdge * 0.11 + vec2(sin(u_time * 0.42), cos(u_time * 0.36)) * u_params[5] * 0.002;
+    vec2 flow = (v_uv - c) * movingEdge * 0.08;
     vec2 p = (v_uv + flow) * density;
     vec2 cell = floor(p);
     vec2 local = fract(p);
     float h = hash(cell);
-    float pointRadius = max(u_params[4] * 0.014, 0.018) * (1.0 + u_params[6] * (h - 0.5));
-    float point = aaBand(length(local - 0.5), pointRadius) * movingEdge;
-    float vertical = aaBand(abs(local.x - 0.5), 0.01 * max(u_params[3], 0.5)) * step(abs(local.y - 0.5), u_params[2] * 0.01);
-    float horizontal = aaBand(abs(local.y - 0.5), 0.01 * max(u_params[3], 0.5)) * step(abs(local.x - 0.5), u_params[2] * 0.01);
-    float link = max(vertical, horizontal) * movingEdge;
-    float idGlyph = u_params[7] > 0.5 ? objectGlyph(fract(p * 1.7), cell, 3.0) * 0.28 * movingEdge : 0.0;
-    float plexMask = clamp(point + link * 0.78 + idGlyph, 0.0, 1.0);
+    vec2 node = vec2(hash(cell + 2.1), hash(cell + 9.4));
+    vec2 velocity = vec2(hash(cell + 31.0), hash(cell + 71.0)) - 0.5;
+    node = fract(node + velocity * u_time * 0.018);
+    node += vec2(sin(u_time * 2.1 + h * 6.2831), cos(u_time * 1.7 + hash(cell + 4.7) * 6.2831)) * u_params[5] * 0.006;
+    float edgeGate = clamp(0.22 + movingEdge * 1.35 + subject * 0.55, 0.0, 1.0);
+    float pointRadius = max(u_params[4] * 0.018, 0.022) * (1.0 + u_params[6] * (h - 0.5));
+    float point = objectGlyph(fract((local - node) / max(pointRadius * 2.3, 0.02)) * 0.75 + 0.125, cell, shapeType) * edgeGate;
+    float link = 0.0;
+    for (int ox = -1; ox <= 1; ox++) {
+      for (int oy = -1; oy <= 1; oy++) {
+        vec2 ncell = cell + vec2(float(ox), float(oy));
+        if (abs(float(ox)) + abs(float(oy)) < 0.5) continue;
+        float nh = hash(ncell);
+        vec2 nnode = vec2(hash(ncell + 2.1), hash(ncell + 9.4));
+        vec2 nvelocity = vec2(hash(ncell + 31.0), hash(ncell + 71.0)) - 0.5;
+        nnode = fract(nnode + nvelocity * u_time * 0.018);
+        nnode += vec2(sin(u_time * 2.1 + nh * 6.2831), cos(u_time * 1.7 + hash(ncell + 4.7) * 6.2831)) * u_params[5] * 0.006;
+        vec2 a = node;
+        vec2 b = vec2(float(ox), float(oy)) + nnode;
+        float distCells = length(b - a);
+        float maxDist = u_params[2] * density / max(min(u_resolution.x, u_resolution.y), 1.0);
+        float proximity = smoothstep(maxDist, 0.0, distCells);
+        float lineDist = sdSegment(local, a, b);
+        float width = (0.0045 + u_params[3] * 0.004) * (0.45 + proximity);
+        link = max(link, (1.0 - smoothstep(width, width + fwidth(lineDist), lineDist)) * proximity);
+      }
+    }
+    float crosshair = 0.0;
+    if (hash(cell + 12.0) < 0.09) {
+      crosshair = max(aaBand(abs(local.x - node.x), 0.008) * step(abs(local.y - node.y), 0.22), aaBand(abs(local.y - node.y), 0.008) * step(abs(local.x - node.x), 0.22));
+    }
+    float idGlyph = u_params[7] > 0.5 ? objectGlyph(fract((local - node + vec2(0.28, -0.18)) * 3.1), cell, 3.0) * 0.32 * edgeGate : 0.0;
+    float plexMask = clamp(point + link * 0.95 * edgeGate + crosshair * 0.45 * edgeGate + idGlyph, 0.0, 1.0);
     vec3 plexVideo = sampleSource(effectUv + (local - 0.5) * plexMask * 0.018).rgb;
     plexVideo = mix(plexVideo, plexVideo * (0.78 + u_color * (0.42 + h * 0.28)), plexMask);
     color = mix(color, plexVideo, plexMask);
@@ -898,7 +958,16 @@ const paramsToUniform = (effectId: EffectId, params: any) => {
     return [params.dotSize || 42, params.dotSizeRandom || 0.5, params.angle || 45, 0, 0, 0, 0, 0];
   }
   if (effectId === 'plexus') {
-    return [0, params.pointCount || 325, params.linkDistance || 80, params.lineWidth || 2.6, params.pointSize || 5.5, params.jitter || 10, params.pointSizeRandom || 0.5, params.showNumbers ? 1 : 0];
+    const shapeType = params.shapeType === 'dot'
+      ? 1
+      : params.shapeType === 'square'
+        ? 2
+        : params.shapeType === 'number'
+          ? 3
+          : params.shapeType === 'alphabet'
+            ? 4
+            : 0;
+    return [shapeType, params.pointCount || 325, params.linkDistance || 80, params.lineWidth || 2.6, params.pointSize || 5.5, params.jitter || 10, params.pointSizeRandom || 0.5, params.showNumbers ? 1 : 0];
   }
   if (effectId === 'matrix') {
     return [params.density || 225, params.fallSpeed || 7.75, params.fontSize || 23, params.showNumbers ? 1 : 0, 0, 0, 0, 0];

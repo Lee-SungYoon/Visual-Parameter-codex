@@ -497,7 +497,8 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
           colorModeWeightsRef.current.thermal += (colorModeTarget.thermal - colorModeWeightsRef.current.thermal) * 0.055;
           colorModeWeightsRef.current.warm += (colorModeTarget.warm - colorModeWeightsRef.current.warm) * 0.055;
           colorModeWeightsRef.current.cool += (colorModeTarget.cool - colorModeWeightsRef.current.cool) * 0.055;
-          const renderEffect = globalParams.effectEnabled && (isCleanFeed || globalParams.previewMode !== 'original');
+          const isOriginalEffect = activeEffect.id === 'none';
+          const renderEffect = !isOriginalEffect && globalParams.effectEnabled && (isCleanFeed || globalParams.previewMode !== 'original');
           if (renderEffect && shaderRendererRef.current) {
             renderShaderFrame(shaderRendererRef.current, source, activeEffect.id, effectParams, globalParams, elapsed, detectionBoxesRef.current, colorModeWeightsRef.current);
           } else if (renderEffect) {
