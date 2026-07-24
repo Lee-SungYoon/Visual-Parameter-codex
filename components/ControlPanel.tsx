@@ -271,9 +271,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
     if (config.type === 'select') {
       const isIconSelect = config.options?.every((option) => ['arrow', 'dot', 'square', 'number', 'alphabet', 'triangle', 'hexagon', 'rhombus'].includes(option));
+      const hideLabel = key === 'direction';
       return (
-        <div key={key} className={isIconSelect ? 'flex min-w-0 flex-1 basis-[clamp(176px,14vw,232px)] items-end' : 'min-w-0 flex-1 basis-[clamp(184px,15vw,248px)]'}>
-          {!isIconSelect && <div className="mb-2 text-[8px] font-black uppercase text-white/45">{label}</div>}
+        <div key={key} className={isIconSelect ? 'flex min-w-0 flex-1 basis-[clamp(176px,14vw,232px)] items-center' : 'flex min-w-0 flex-1 basis-[clamp(184px,15vw,248px)] flex-col justify-center'}>
+          {!isIconSelect && !hideLabel && <div className="mb-2 text-[8px] font-black uppercase text-white/45">{label}</div>}
           <div className="flex rounded-[18px] border border-white/10 bg-black/35 p-1">
             {config.options?.map((option) => (
               <button
