@@ -381,22 +381,39 @@ void main() {
     float amount = u_params[0];
     float direction = u_params[1];
     float radial = u_params[2];
-    float jitter = (hash(vec2(floor(u_time * 28.0), uv.y * 17.0)) - 0.5) * u_params[3] * 0.018;
+    float jitter = (hash(vec2(floor(u_time * 34.0), uv.y * 17.0)) - 0.5) * u_params[3] * 0.028;
     vec2 dir = direction < 0.5 ? vec2(1.0, 0.0) : (direction < 1.5 ? vec2(0.0, 1.0) : (direction < 2.5 ? normalize(vec2(1.0, 1.0)) : normalize(centered + vec2(0.0001))));
     vec2 radialDir = normalize(centered + vec2(0.0001)) * radial;
-    vec2 offset = (dir + radialDir) * amount + jitter;
+    vec2 offset = (dir + radialDir) * amount * 1.45 + jitter;
     vec3 shifted = vec3(
-      sampleSource(effectUv + offset).r,
-      sampleSource(effectUv).g,
-      sampleSource(effectUv - offset).b
+      sampleSource(effectUv + offset * 1.25).r,
+      sampleSource(effectUv - offset * 0.35).g,
+      sampleSource(effectUv - offset * 1.25).b
     );
     vec2 px = 1.0 / u_resolution;
     float edge = length(sampleSource(effectUv + vec2(px.x, 0.0)).rgb - sampleSource(effectUv - vec2(px.x, 0.0)).rgb);
     edge += length(sampleSource(effectUv + vec2(0.0, px.y)).rgb - sampleSource(effectUv - vec2(0.0, px.y)).rgb);
     float focus = trackedMask(uv, 0.16);
-    float edgeMask = u_params[6] > 0.5 ? smoothstep(0.06, 0.18, edge) : 1.0;
-    edgeMask = max(edgeMask, focus * 0.72);
-    color = mix(color, shifted, edgeMask);
+    float movingEdge = smoothstep(0.045, 0.2, edge);
+    float edgeMask = u_params[6] > 0.5 ? movingEdge : 1.0;
+    edgeMask = max(edgeMask, focus * 0.78);
+    vec3 rgbOverlay = shifted + vec3(1.0, 0.0, 0.0) * movingEdge * 0.32 + vec3(0.0, 0.95, 1.0) * focus * 0.22;
+    color = mix(color, rgbOverlay, clamp(edgeMask * (0.86 + u_params[5] * 0.24), 0.0, 1.0));
+
+    float density = mix(28.0, 82.0, clamp(u_params[5], 0.0, 1.0));
+    vec2 edgeFlow = normalize(centered + vec2(0.0001)) * focus * 0.08 + vec2(sin(u_time * 0.55), cos(u_time * 0.47)) * 0.018;
+    vec2 markerUv = (v_uv + edgeFlow) * density;
+    vec2 markerCell = floor(markerUv);
+    vec2 markerLocal = fract(markerUv);
+    float markerSeed = hash(markerCell);
+    float markerGate = step(0.38, markerSeed) * max(movingEdge, focus * 0.82);
+    float arrow = objectGlyph(markerLocal, markerCell, 0.0);
+    float numberGlyph = objectGlyph(fract(markerUv * 1.55 + vec2(0.18, 0.08)), markerCell + 19.0, 3.0);
+    vec2 crossLocal = markerLocal - 0.5;
+    float cross = (aaBand(abs(crossLocal.x), 0.012) * step(abs(crossLocal.y), 0.34) + aaBand(abs(crossLocal.y), 0.012) * step(abs(crossLocal.x), 0.34)) * step(0.82, markerSeed);
+    float connector = aaBand(abs(crossLocal.y - crossLocal.x * 0.45), 0.008) * step(abs(crossLocal.x), 0.42) * step(0.76, hash(markerCell + 7.3));
+    vec3 markerColor = vec3(0.0, 0.92, 0.95);
+    color = mix(color, markerColor, clamp((arrow * 0.85 + numberGlyph * 0.45 + cross * 0.35 + connector * 0.28) * markerGate, 0.0, 0.92));
   } else if (u_effect == 13) {
     float thickness = max(u_params[0], 0.5);
     float threshold = u_params[1];
