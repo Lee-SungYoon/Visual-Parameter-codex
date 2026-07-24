@@ -16,6 +16,7 @@ interface ShaderRenderer {
   effectLocation: WebGLUniformLocation | null;
   paramsLocation: WebGLUniformLocation | null;
   globalLocation: WebGLUniformLocation | null;
+  commonLocation: WebGLUniformLocation | null;
   flagsLocation: WebGLUniformLocation | null;
   colorLocation: WebGLUniformLocation | null;
   boxCountLocation: WebGLUniformLocation | null;
@@ -24,6 +25,13 @@ interface ShaderRenderer {
 
 const EFFECT_INDEX: Record<EffectId, number> = {
   none: 0,
+  motion_trail: 11,
+  rgb_shift: 12,
+  neon_edge: 13,
+  pixel_flow: 14,
+  time_scan: 15,
+  motion_particles: 16,
+  depth_cloud: 17,
   vortex: 1,
   kaleido: 2,
   geometry: 3,
@@ -46,8 +54,7 @@ void main() {
 }
 `;
 
-const FRAGMENT_SHADER = `
-#extension GL_OES_standard_derivatives : enable
+const FRAGMENT_SHADER = `#extension GL_OES_standard_derivatives : enable
 precision highp float;
 
 uniform sampler2D u_texture;
@@ -57,6 +64,7 @@ uniform float u_time;
 uniform int u_effect;
 uniform float u_params[8];
 uniform vec4 u_global;
+uniform vec4 u_common;
 uniform vec4 u_flags;
 uniform vec3 u_color;
 uniform int u_boxCount;
@@ -180,13 +188,91 @@ void main() {
     float radius = max(u_params[2], 0.01);
     float strength = max(u_params[3], 0.0);
     effectUv += repelFromBoxes(uv, radius, strength);
+  } else if (u_effect == 11) {
+    float scale = max(u_params[3], 0.9);
+    float rotation = u_params[4] + sin(u_time * 0.7) * u_params[6] * 0.018;
+    vec2 p = uv - 0.5;
+    mat2 rot = mat2(cos(rotation), -sin(rotation), sin(rotation), cos(rotation));
+    effectUv = rot * (p / scale) + 0.5;
+  } else if (u_effect == 12) {
+    float distortion = u_params[4];
+    float r = length(centered);
+    effectUv += centered * r * distortion * 0.08;
+  } else if (u_effect == 14) {
+    float threshold = u_params[1];
+    float stretch = u_params[6] * 0.16;
+    float wave = sin((uv.y + u_time * u_params[5] * 0.08) * 80.0) * u_params[4] * 0.01;
+    float sourceLuma = dot(sampleSource(uv).rgb, vec3(0.299, 0.587, 0.114));
+    effectUv.x += step(threshold, sourceLuma) * stretch + wave;
+  } else if (u_effect == 15) {
+    float wave = sin((uv.y + u_time * u_params[3]) * 20.0 * max(u_params[4], 1.0)) * u_params[5] * 0.04;
+    effectUv.x += wave * smoothstep(0.0, max(u_params[2], 0.01), abs(fract(uv.y + u_params[7]) - 0.5));
+  } else if (u_effect == 17) {
+    float sourceLuma = dot(sampleSource(uv).rgb, vec3(0.299, 0.587, 0.114));
+    float depth = sourceLuma * u_params[0];
+    vec2 orbit = vec2(cos(u_time * u_params[6]), sin(u_time * u_params[6])) * depth * u_params[3] * 0.08;
+    effectUv += orbit + (hash(floor(uv * 90.0)) - 0.5) * u_params[5] * 0.01;
   }
 
   vec4 base = sampleSource(effectUv);
+  vec3 originalColor = sampleSource(uv).rgb;
   vec3 color = base.rgb;
   float luma = dot(color, vec3(0.299, 0.587, 0.114));
 
-  if (u_effect == 3) {
+  if (u_effect == 11) {
+    float trail = clamp(u_params[0], 0.0, 1.0);
+    float decay = clamp(u_params[1], 0.0, 1.0);
+    float blur = u_params[2];
+    float glow = u_params[5];
+    vec2 px = 1.0 / u_resolution * (1.0 + blur * 7.0);
+    vec3 echoA = sampleSource(effectUv + vec2(px.x, 0.0)).rgb;
+    vec3 echoB = sampleSource(effectUv - vec2(0.0, px.y)).rgb;
+    vec3 echoC = sampleSource(effectUv + vec2(-px.x, px.y)).rgb;
+    vec3 feedback = (echoA + echoB + echoC) / 3.0;
+    float bright = smoothstep(0.35, 1.0, dot(feedback, vec3(0.299, 0.587, 0.114)));
+    color = mix(color, feedback * (1.0 - decay * 0.45) + u_color * bright * glow, trail);
+  } else if (u_effect == 12) {
+    float amount = u_params[0];
+    float direction = u_params[1];
+    float radial = u_params[2];
+    float jitter = (hash(vec2(floor(u_time * 28.0), uv.y * 17.0)) - 0.5) * u_params[3] * 0.018;
+    vec2 dir = direction < 0.5 ? vec2(1.0, 0.0) : (direction < 1.5 ? vec2(0.0, 1.0) : (direction < 2.5 ? normalize(vec2(1.0, 1.0)) : normalize(centered + vec2(0.0001))));
+    vec2 radialDir = normalize(centered + vec2(0.0001)) * radial;
+    vec2 offset = (dir + radialDir) * amount + jitter;
+    vec3 shifted = vec3(
+      sampleSource(effectUv + offset).r,
+      sampleSource(effectUv).g,
+      sampleSource(effectUv - offset).b
+    );
+    vec2 px = 1.0 / u_resolution;
+    float edge = length(sampleSource(effectUv + vec2(px.x, 0.0)).rgb - sampleSource(effectUv - vec2(px.x, 0.0)).rgb);
+    edge += length(sampleSource(effectUv + vec2(0.0, px.y)).rgb - sampleSource(effectUv - vec2(0.0, px.y)).rgb);
+    float edgeMask = u_params[6] > 0.5 ? smoothstep(0.08, 0.22, edge) : 1.0;
+    color = mix(color, shifted, edgeMask);
+  } else if (u_effect == 13) {
+    float thickness = max(u_params[0], 0.5);
+    float threshold = u_params[1];
+    float glow = u_params[2];
+    float trail = u_params[3];
+    float growth = u_params[4];
+    float dim = u_params[5];
+    vec2 px = 1.0 / u_resolution * thickness;
+    float tl = dot(sampleSource(effectUv + px * vec2(-1.0, -1.0)).rgb, vec3(0.299, 0.587, 0.114));
+    float tc = dot(sampleSource(effectUv + px * vec2(0.0, -1.0)).rgb, vec3(0.299, 0.587, 0.114));
+    float tr = dot(sampleSource(effectUv + px * vec2(1.0, -1.0)).rgb, vec3(0.299, 0.587, 0.114));
+    float ml = dot(sampleSource(effectUv + px * vec2(-1.0, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+    float mr = dot(sampleSource(effectUv + px * vec2(1.0, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+    float bl = dot(sampleSource(effectUv + px * vec2(-1.0, 1.0)).rgb, vec3(0.299, 0.587, 0.114));
+    float bc = dot(sampleSource(effectUv + px * vec2(0.0, 1.0)).rgb, vec3(0.299, 0.587, 0.114));
+    float br = dot(sampleSource(effectUv + px * vec2(1.0, 1.0)).rgb, vec3(0.299, 0.587, 0.114));
+    float gx = -tl - 2.0 * ml - bl + tr + 2.0 * mr + br;
+    float gy = -tl - 2.0 * tc - tr + bl + 2.0 * bc + br;
+    float edge = length(vec2(gx, gy));
+    float stroke = smoothstep(threshold, threshold + 0.18, edge);
+    float aura = smoothstep(threshold * 0.35, threshold + 0.35 + growth, edge) * glow;
+    vec3 neon = u_color * (stroke + aura * 0.55 + trail * 0.25);
+    color = mix(color * (1.0 - dim), neon, clamp(stroke + aura, 0.0, 1.0));
+  } else if (u_effect == 3) {
     float gridSize = max(u_params[0], 8.0);
     vec2 grid = fract(v_uv * u_resolution / gridSize);
     float line = min(min(grid.x, grid.y), min(1.0 - grid.x, 1.0 - grid.y));
@@ -255,6 +341,24 @@ void main() {
     blockColor = mode > 1.5 ? u_color : (mode > 0.5 ? mix(color, u_color, 0.35) : blockColor);
     color = mix(color * 0.18, blockColor, rect * (1.0 - avoid * 0.82));
     color += u_color * smoothstep(0.9, 0.0, abs(avoid - 0.36)) * 0.25;
+  } else if (u_effect == 16) {
+    float count = max(u_params[0] * 0.018, 6.0);
+    float size = u_params[1] * 0.01;
+    float turbulence = u_params[4];
+    vec2 flowUv = v_uv * count + vec2(sin(u_time * 0.7), cos(u_time * 0.9)) * turbulence;
+    vec2 cell = floor(flowUv);
+    vec2 local = fract(flowUv) - 0.5;
+    float spin = u_params[7] > 2.5 ? length(local) : dot(local, normalize(vec2(sin(u_time), cos(u_time))));
+    float particle = aaBand(length(local + vec2(sin(hash(cell) * 6.28 + u_time), cos(hash(cell) * 6.28 + u_time)) * 0.18), max(size, 0.015));
+    float motionGate = smoothstep(u_params[6], 1.0, abs(sin(hash(cell) * 8.0 + u_time * u_params[2])));
+    color = mix(color * 0.35, u_color + vec3(spin * 0.25), particle * motionGate * u_params[5]);
+  } else if (u_effect == 17) {
+    float density = mix(18.0, 110.0, clamp(u_params[2], 0.0, 1.0));
+    vec2 cellUv = fract(v_uv * density) - 0.5;
+    float point = aaBand(length(cellUv), max(u_params[1] * 0.012, 0.01));
+    float depth = luma * u_params[0];
+    vec3 cloud = mix(u_color * 0.35, color + u_color * 0.4, depth);
+    color = mix(color * u_params[7], cloud, point);
   }
 
   float exposure = u_global.x;
@@ -270,6 +374,19 @@ void main() {
   color += (hash(v_uv * u_time * 180.0) - 0.5) * grain * 0.12;
   float vig = smoothstep(0.95, 0.18, length(v_uv - 0.5));
   color *= mix(1.0, vig, vignette);
+
+  vec3 blended = color;
+  if (u_common.z > 0.5 && u_common.z < 1.5) {
+    blended = 1.0 - (1.0 - originalColor) * (1.0 - color);
+  } else if (u_common.z > 1.5 && u_common.z < 2.5) {
+    blended = originalColor + color;
+  } else if (u_common.z > 2.5 && u_common.z < 3.5) {
+    blended = originalColor * color;
+  } else if (u_common.z > 3.5) {
+    blended = abs(originalColor - color);
+  }
+  color = mix(originalColor, blended, clamp(u_common.x, 0.0, 1.0));
+  color = mix(color, originalColor, clamp(u_common.y, 0.0, 1.0));
 
   gl_FragColor = vec4(clamp(color, 0.0, 1.0), base.a);
 }
@@ -362,6 +479,7 @@ export const createShaderRenderer = (canvas: HTMLCanvasElement): ShaderRenderer 
     effectLocation: gl.getUniformLocation(program, 'u_effect'),
     paramsLocation: gl.getUniformLocation(program, 'u_params'),
   globalLocation: gl.getUniformLocation(program, 'u_global'),
+  commonLocation: gl.getUniformLocation(program, 'u_common'),
   flagsLocation: gl.getUniformLocation(program, 'u_flags'),
     colorLocation: gl.getUniformLocation(program, 'u_color'),
     boxCountLocation: gl.getUniformLocation(program, 'u_boxCount'),
@@ -431,6 +549,58 @@ const paramsToUniform = (effectId: EffectId, params: any) => {
       0,
     ];
   }
+  if (effectId === 'motion_trail') {
+    return [
+      params.trailLength || 0.72,
+      params.decay || 0.62,
+      params.blur || 0.35,
+      params.feedbackScale || 1.018,
+      params.rotation || 0.018,
+      params.glow || 0.7,
+      params.motionReactivity || 0.6,
+      params.effectAmount || 0.9,
+    ];
+  }
+  if (effectId === 'rgb_shift') {
+    const direction = params.direction === 'vertical' ? 1 : params.direction === 'diagonal' ? 2 : params.direction === 'radial' ? 3 : 0;
+    return [
+      params.rgbAmount || 0.018,
+      direction,
+      params.radialAmount || 0.45,
+      params.jitter || 0.18,
+      params.lensDistortion || 0.22,
+      params.motionReactivity || 0.5,
+      params.edgeOnly ? 1 : 0,
+      params.effectAmount || 0.85,
+    ];
+  }
+  if (effectId === 'neon_edge') {
+    return [
+      params.edgeThickness || 1.8,
+      params.edgeThreshold || 0.2,
+      params.glow || 1.1,
+      params.trail || 0.28,
+      params.growth || 0.25,
+      params.backgroundDim || 0.55,
+      params.motionReactivity || 0.35,
+      0,
+    ];
+  }
+  if (effectId === 'pixel_flow') {
+    const direction = params.direction === 'vertical' ? 1 : params.direction === 'radial' ? 2 : 0;
+    return [direction, params.threshold || 0.45, params.sortLength || 0.28, params.blockSize || 18, params.noise || 0.22, params.speed || 1, params.stretchAmount || 0.4, params.motionReactivity || 0.4];
+  }
+  if (effectId === 'time_scan') {
+    const direction = params.direction === 'vertical' ? 1 : params.direction === 'radial' ? 2 : 0;
+    return [params.timeDepth || 0.55, direction, params.scanWidth || 0.18, params.delay || 0.2, params.repeat || 2, params.wave || 0.35, params.maskFeather || 0.25, params.timeOffset || 0.1];
+  }
+  if (effectId === 'motion_particles') {
+    const mode = params.directionMode === 'push' ? 1 : params.directionMode === 'pull' ? 2 : params.directionMode === 'swirl' ? 3 : 0;
+    return [params.particleCount || 650, params.particleSize || 2.4, params.motionStrength || 0.65, params.flowSmoothness || 0.42, params.turbulence || 0.35, params.particleLifetime || 0.7, params.motionThreshold || 0.18, mode];
+  }
+  if (effectId === 'depth_cloud') {
+    return [params.depthStrength || 0.55, params.pointSize || 2.6, params.pointDensity || 0.5, params.zScale || 0.6, params.explosion || 0.18, params.noise || 0.25, params.cameraOrbit || 0.35, params.originalMix || 0.35];
+  }
   return [0, 0, 0, 0, 0, 0, 0, 0];
 };
 
@@ -473,6 +643,22 @@ export const renderShaderFrame = (
     globalParams.contrast,
     globalParams.vignette,
     globalParams.grain
+  );
+  const blendMode = globalParams.blendMode === 'screen'
+    ? 1
+    : globalParams.blendMode === 'add'
+      ? 2
+      : globalParams.blendMode === 'multiply'
+        ? 3
+        : globalParams.blendMode === 'difference'
+          ? 4
+          : 0;
+  gl.uniform4f(
+    renderer.commonLocation,
+    globalParams.effectEnabled ? globalParams.effectAmount : 0,
+    globalParams.originalMix,
+    blendMode,
+    globalParams.speed
   );
   gl.uniform4f(
     renderer.flagsLocation,

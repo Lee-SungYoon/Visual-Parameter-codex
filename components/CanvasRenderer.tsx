@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
-import { GlobalParams, EffectDef } from '../types';
+import { GlobalParams, EffectDef, PlaybackState } from '../types';
 import { createShaderRenderer, DetectionBox, disposeShaderRenderer, renderShaderFrame } from '../services/webglShaderEngine';
 import { ImageSegmenter, FilesetResolver, ObjectDetector } from '@mediapipe/tasks-vision';
 
@@ -12,11 +12,19 @@ interface CanvasRendererProps {
   globalParams: GlobalParams;
   onUpload: (file: File) => void;
   onExportStateChange?: (isExporting: boolean) => void;
+  onPlaybackStateChange?: (state: PlaybackState) => void;
   isCleanFeed?: boolean;
 }
 
 export interface CanvasRendererHandle {
   startExport: () => void;
+  play: () => void;
+  pause: () => void;
+  seek: (time: number) => void;
+  stepFrame: (direction: -1 | 1) => void;
+  setLoop: (loop: boolean) => void;
+  setMuted: (muted: boolean) => void;
+  enterFullscreen: () => void;
 }
 
 const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
@@ -27,6 +35,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   globalParams,
   onUpload,
   onExportStateChange,
+  onPlaybackStateChange,
   isCleanFeed = false
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -43,6 +52,13 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   const lastMaskRef = useRef<ImageData | null>(null);
   const detectionBoxesRef = useRef<DetectionBox[]>([]);
   const frameCountRef = useRef<number>(0);
+  const lastPlaybackStateRef = useRef<PlaybackState>({
+    isPlaying: false,
+    currentTime: 0,
+    duration: 0,
+    loop: true,
+    muted: true,
+  });
 
   const [unitSize, setUnitSize] = useState({ w: 0, h: 0 });
   const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 });
@@ -71,6 +87,21 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
         playVideo();
     }
   }, [mediaSrc, mediaLoaded, isVideo]);
+
+  const publishPlaybackState = () => {
+    const video = sourceVideoRef.current;
+    const next = video
+      ? {
+          isPlaying: !video.paused,
+          currentTime: video.currentTime || 0,
+          duration: Number.isFinite(video.duration) ? video.duration : 0,
+          loop: video.loop,
+          muted: video.muted,
+        }
+      : lastPlaybackStateRef.current;
+    lastPlaybackStateRef.current = next;
+    onPlaybackStateChange?.(next);
+  };
 
   useImperativeHandle(ref, () => ({
     startExport: async () => {
@@ -165,6 +196,38 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
           }
         }, 100);
       }
+    },
+    play: () => {
+      sourceVideoRef.current?.play();
+      publishPlaybackState();
+    },
+    pause: () => {
+      sourceVideoRef.current?.pause();
+      publishPlaybackState();
+    },
+    seek: (time: number) => {
+      if (!sourceVideoRef.current) return;
+      sourceVideoRef.current.currentTime = Math.max(0, Math.min(time, sourceVideoRef.current.duration || 0));
+      publishPlaybackState();
+    },
+    stepFrame: (direction: -1 | 1) => {
+      if (!sourceVideoRef.current) return;
+      sourceVideoRef.current.pause();
+      sourceVideoRef.current.currentTime = Math.max(0, Math.min(sourceVideoRef.current.currentTime + direction / 30, sourceVideoRef.current.duration || 0));
+      publishPlaybackState();
+    },
+    setLoop: (loop: boolean) => {
+      if (!sourceVideoRef.current) return;
+      sourceVideoRef.current.loop = loop;
+      publishPlaybackState();
+    },
+    setMuted: (muted: boolean) => {
+      if (!sourceVideoRef.current) return;
+      sourceVideoRef.current.muted = muted;
+      publishPlaybackState();
+    },
+    enterFullscreen: () => {
+      canvasRef.current?.requestFullscreen?.();
     }
   }));
 
@@ -260,6 +323,33 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
     return () => window.removeEventListener('resize', handleResize);
   }, [isCleanFeed, mediaLoaded, isVideo, mediaSrc]);
 
+  const drawCoverSource = (
+    ctx: CanvasRenderingContext2D,
+    source: HTMLImageElement | HTMLVideoElement,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ) => {
+    const sourceW = source instanceof HTMLVideoElement ? source.videoWidth : source.naturalWidth;
+    const sourceH = source instanceof HTMLVideoElement ? source.videoHeight : source.naturalHeight;
+    if (!sourceW || !sourceH) return;
+    const sourceAspect = sourceW / sourceH;
+    const targetAspect = width / height;
+    let sx = 0;
+    let sy = 0;
+    let sw = sourceW;
+    let sh = sourceH;
+    if (sourceAspect > targetAspect) {
+      sw = sourceH * targetAspect;
+      sx = (sourceW - sw) / 2;
+    } else {
+      sh = sourceW / targetAspect;
+      sy = (sourceH - sh) / 2;
+    }
+    ctx.drawImage(source, sx, sy, sw, sh, x, y, width, height);
+  };
+
   const animate = () => {
     if (canvasRef.current && mediaLoaded && unitSize.w > 0) {
       const displayCtx = canvasRef.current.getContext('2d');
@@ -331,7 +421,10 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
           } else if (activeEffect.id !== 'kinetic_avoid') {
             detectionBoxesRef.current = [];
           }
-          renderShaderFrame(shaderRendererRef.current, source, activeEffect.id, effectParams, globalParams, elapsed, detectionBoxesRef.current);
+          const renderEffect = globalParams.effectEnabled && globalParams.previewMode !== 'original';
+          if (renderEffect) {
+            renderShaderFrame(shaderRendererRef.current, source, activeEffect.id, effectParams, globalParams, elapsed, detectionBoxesRef.current);
+          }
           displayCtx.clearRect(0, 0, canvasSize.w, canvasSize.h);
           displayCtx.save();
           if (trackingOffsetRef.current.scale > 1.01) {
@@ -357,7 +450,31 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
             }
             displayCtx.drawImage(internalCanvas, 0, 0, procW, procH, centralStartX, 0, unitW, unitH);
           } else {
-            displayCtx.drawImage(internalCanvas, 0, 0, procW, procH, 0, 0, unitSize.w, unitSize.h);
+            if (renderEffect) {
+              displayCtx.drawImage(internalCanvas, 0, 0, procW, procH, 0, 0, unitSize.w, unitSize.h);
+              if (globalParams.previewMode === 'split') {
+                displayCtx.save();
+                displayCtx.beginPath();
+                displayCtx.rect(0, 0, unitSize.w / 2, unitSize.h);
+                displayCtx.clip();
+                drawCoverSource(displayCtx, source, 0, 0, unitSize.w, unitSize.h);
+                displayCtx.restore();
+                displayCtx.fillStyle = 'rgba(255,255,255,0.8)';
+                displayCtx.fillRect(unitSize.w / 2 - 1, 0, 2, unitSize.h);
+              } else if (globalParams.previewMode === 'before_after') {
+                const wipe = 0.5 + Math.sin(elapsed * 0.8) * 0.22;
+                displayCtx.save();
+                displayCtx.beginPath();
+                displayCtx.rect(0, 0, unitSize.w * wipe, unitSize.h);
+                displayCtx.clip();
+                drawCoverSource(displayCtx, source, 0, 0, unitSize.w, unitSize.h);
+                displayCtx.restore();
+                displayCtx.fillStyle = 'rgba(255,255,255,0.85)';
+                displayCtx.fillRect(unitSize.w * wipe - 1, 0, 2, unitSize.h);
+              }
+            } else {
+              drawCoverSource(displayCtx, source, 0, 0, unitSize.w, unitSize.h);
+            }
           }
           displayCtx.restore();
       }
@@ -378,7 +495,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
     return (
       <div className="w-full h-full bg-black flex items-center justify-center overflow-hidden" ref={containerRef}>
         {mediaSrc && isVideo && (
-            <video ref={sourceVideoRef} src={mediaSrc} className="hidden" muted loop playsInline autoPlay onLoadedMetadata={() => setMediaLoaded(true)} />
+            <video ref={sourceVideoRef} src={mediaSrc} className="hidden" muted loop playsInline autoPlay onLoadedMetadata={() => { setMediaLoaded(true); publishPlaybackState(); }} onTimeUpdate={publishPlaybackState} onPlay={publishPlaybackState} onPause={publishPlaybackState} onDurationChange={publishPlaybackState} />
         )}
         {mediaSrc && !isVideo && (
             <img ref={sourceImageRef} src={mediaSrc} className="hidden" onLoad={() => setMediaLoaded(true)} />
@@ -459,7 +576,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
           </div>
         )}
         {mediaSrc && isVideo && (
-            <video ref={sourceVideoRef} src={mediaSrc} className="w-full h-full object-cover" muted loop playsInline autoPlay onLoadedMetadata={() => setMediaLoaded(true)} />
+            <video ref={sourceVideoRef} src={mediaSrc} className="w-full h-full object-cover" muted loop playsInline autoPlay onLoadedMetadata={() => { setMediaLoaded(true); publishPlaybackState(); }} onTimeUpdate={publishPlaybackState} onPlay={publishPlaybackState} onPause={publishPlaybackState} onDurationChange={publishPlaybackState} />
         )}
         {mediaSrc && !isVideo && (
             <img ref={sourceImageRef} src={mediaSrc} className="w-full h-full object-cover" onLoad={() => setMediaLoaded(true)} />

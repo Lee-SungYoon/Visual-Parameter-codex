@@ -1,370 +1,332 @@
-
 import React from 'react';
-import { GlobalParams, EffectDef, ParamConfig } from '../types';
-import { hslToHex } from '../services/utils';
-import { 
-  CheckSquare, 
-  Square, 
-  Zap, 
-  Target, 
-  SlidersHorizontal, 
-  MousePointer2, 
-  Circle, 
-  Square as SquareIcon,
-  Hash,
-  Type,
-  Triangle,
-  Hexagon,
-  Diamond
+import { BlendMode, EffectDef, GlobalParams, ParamConfig, PlaybackState, PreviewMode } from '../types';
+import {
+  CheckSquare,
+  ExternalLink,
+  Maximize2,
+  Pause,
+  Play,
+  RotateCcw,
+  SkipBack,
+  SkipForward,
+  Square,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 
 interface ControlPanelProps {
   globalParams: GlobalParams;
   setGlobalParams: (p: GlobalParams) => void;
   activeEffect: EffectDef;
-  effectParams: any;
-  setEffectParams: (p: any) => void;
+  effectParams: Record<string, number | string | boolean>;
+  setEffectParams: (p: Record<string, number | string | boolean>) => void;
   allEffects: EffectDef[];
   onSelectEffect: (e: EffectDef) => void;
   isVideo: boolean;
+  playbackState: PlaybackState;
+  onPlay: () => void;
+  onPause: () => void;
+  onSeek: (time: number) => void;
+  onStepFrame: (direction: -1 | 1) => void;
+  onToggleLoop: () => void;
+  onToggleMute: () => void;
+  onFullscreen: () => void;
 }
 
-const ControlPanel: React.FC<ControlPanelProps> = ({
-  globalParams, setGlobalParams, activeEffect, effectParams, setEffectParams, allEffects, onSelectEffect
-}) => {
-  const updateGlobal = (key: keyof GlobalParams, val: any) => setGlobalParams({ ...globalParams, [key]: val });
-  const updateEffect = (key: string, val: any) => setEffectParams({ ...effectParams, [key]: val });
+const TARGETS = [
+  { label: 'Entire Video', value: 'entire' },
+  { label: 'Person', value: 'person' },
+  { label: 'Face', value: 'face' },
+  { label: 'Hands', value: 'hands' },
+  { label: 'Background', value: 'background' },
+  { label: 'Detected Object', value: 'object' },
+  { label: 'Motion Area', value: 'motion' },
+  { label: 'Depth Range', value: 'depth' },
+] as const;
 
-  const handleHSLChange = (key: 'hue' | 'saturation' | 'lightness', val: number) => {
-      const nextParams = { ...globalParams, [key]: val };
-      const hex = hslToHex(nextParams.hue, nextParams.saturation, nextParams.lightness);
-      setGlobalParams({ ...nextParams, effectColor: hex, gradientPreset: 0 });
+const BLEND_MODES: BlendMode[] = ['normal', 'screen', 'add', 'multiply', 'difference'];
+const PREVIEW_MODES: { label: string; value: PreviewMode }[] = [
+  { label: 'Original', value: 'original' },
+  { label: 'Effect', value: 'effect' },
+  { label: 'Split View', value: 'split' },
+  { label: 'Before / After', value: 'before_after' },
+];
+
+const formatTime = (seconds: number) => {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+  return `${mins}:${secs}`;
+};
+
+const statusTone = (status?: string) => {
+  if (status === 'Complete') return 'bg-emerald-400/20 text-emerald-200 border-emerald-300/30';
+  if (status === 'Lite') return 'bg-sky-400/20 text-sky-200 border-sky-300/30';
+  if (status === 'Mock') return 'bg-amber-400/20 text-amber-100 border-amber-300/30';
+  return 'bg-white/10 text-white/45 border-white/10';
+};
+
+const ControlPanel: React.FC<ControlPanelProps> = ({
+  globalParams,
+  setGlobalParams,
+  activeEffect,
+  effectParams,
+  setEffectParams,
+  allEffects,
+  onSelectEffect,
+  isVideo,
+  playbackState,
+  onPlay,
+  onPause,
+  onSeek,
+  onStepFrame,
+  onToggleLoop,
+  onToggleMute,
+  onFullscreen,
+}) => {
+  const updateGlobal = <K extends keyof GlobalParams>(key: K, val: GlobalParams[K]) => {
+    setGlobalParams({ ...globalParams, [key]: val });
   };
 
-  const renderOptionContent = (key: string, option: string) => {
-    if (key === 'shapeType') {
-      if (option === 'arrow') return <MousePointer2 size={12} />;
-      if (option === 'dot') return <Circle size={8} className="fill-current" />;
-      if (option === 'square') return <SquareIcon size={10} className="fill-current" />;
-      if (option === 'number') return <Hash size={12} />;
-      if (option === 'alphabet') return <Type size={12} />;
+  const updateEffect = (key: string, val: number | string | boolean) => {
+    setEffectParams({ ...effectParams, [key]: val });
+  };
+
+  const resetActiveEffect = () => {
+    setEffectParams(activeEffect.defaultParams);
+    setGlobalParams({
+      ...globalParams,
+      effectEnabled: true,
+      effectAmount: 0.85,
+      originalMix: 0.25,
+      maskFeather: 0.2,
+      motionReactivity: 0.5,
+      speed: 1,
+    });
+  };
+
+  const renderParamControl = ([key, config]: [string, ParamConfig]) => {
+    const value = effectParams[key];
+    const label = key.replace(/([A-Z])/g, ' $1');
+
+    if (config.type === 'slider') {
+      const numericValue = typeof value === 'number' ? value : Number(value) || 0;
+      return (
+        <div key={key} className="min-w-[132px] flex-1 max-w-[210px]">
+          <div className="flex items-center justify-between gap-3 text-[8px] font-black uppercase text-white/45">
+            <span className="truncate">{label}</span>
+            <input
+              type="number"
+              min={config.min}
+              max={config.max}
+              step={config.step}
+              value={numericValue}
+              onChange={(event) => updateEffect(key, parseFloat(event.target.value) || 0)}
+              className="w-12 bg-transparent text-right text-white/80 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+          </div>
+          <input
+            type="range"
+            min={config.min}
+            max={config.max}
+            step={config.step}
+            value={numericValue}
+            onChange={(event) => updateEffect(key, parseFloat(event.target.value))}
+            className="mt-2 h-1 w-full cursor-pointer appearance-none rounded-full bg-white/15 accent-white"
+          />
+        </div>
+      );
     }
-    if (key === 'shape') {
-        if (option === 'triangle') return <Triangle size={12} className="fill-current" />;
-        if (option === 'hexagon') return <Hexagon size={12} className="fill-current" />;
-        if (option === 'rhombus') return <Diamond size={12} className="fill-current" />;
+
+    if (config.type === 'select') {
+      return (
+        <div key={key} className="min-w-[190px]">
+          <div className="mb-2 text-[8px] font-black uppercase text-white/45">{label}</div>
+          <div className="flex rounded-full border border-white/10 bg-black/35 p-1">
+            {config.options?.map((option) => (
+              <button
+                key={option}
+                onClick={() => updateEffect(key, option)}
+                className={`h-7 flex-1 rounded-full px-2 text-[8px] font-black uppercase transition ${value === option ? 'bg-white text-zinc-900' : 'text-white/45 hover:bg-white/10 hover:text-white'}`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
     }
-    return option;
+
+    if (config.type === 'color') {
+      return (
+        <div key={key} className="min-w-[132px]">
+          <div className="mb-2 text-[8px] font-black uppercase text-white/45">{label}</div>
+          <input
+            type="color"
+            value={typeof value === 'string' ? value : '#40f7ff'}
+            onChange={(event) => updateEffect(key, event.target.value)}
+            className="h-8 w-full cursor-pointer rounded-full border border-white/10 bg-black/30 p-1"
+          />
+        </div>
+      );
+    }
+
+    return (
+      <button
+        key={key}
+        onClick={() => updateEffect(key, !value)}
+        className={`flex h-8 items-center gap-2 rounded-full border px-4 text-[9px] font-black uppercase transition ${value ? 'border-white bg-white text-zinc-900' : 'border-white/10 bg-white/10 text-white/55 hover:bg-white/20 hover:text-white'}`}
+      >
+        {value ? <CheckSquare size={14} /> : <Square size={14} />}
+        {label}
+      </button>
+    );
   };
 
   return (
-    <div className="flex flex-col gap-2 w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Parameters Panel */}
-      <div className="bg-zinc-900/40 backdrop-blur-2xl border border-white/10 rounded-[32px] p-6 px-10 flex flex-col gap-6 shadow-2xl shadow-black/40">
-         {/* Effect Selection Tabs - Left Aligned */}
-         <div className="flex items-center justify-start gap-2 overflow-x-auto no-scrollbar">
-            {allEffects.map((eff) => (
-                <button
-                    key={eff.id} onClick={() => onSelectEffect(eff)}
-                    className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${activeEffect.id === eff.id ? 'bg-white text-zinc-900 border-white' : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'}`}
-                >
-                    {eff.name}
-                </button>
-            ))}
-         </div>
-
-         {/* Parameters Horizontal Alignment - Left Aligned */}
-         <div className="flex flex-row flex-wrap justify-start items-start gap-x-10 gap-y-6">
-             {(Object.entries(activeEffect.paramConfig) as [string, ParamConfig][]).map(([key, config]) => {
-                 const isShapeType = key === 'shapeType';
-                 const isShowNumbers = key === 'showNumbers';
-                 const isNumeric = config.type === 'slider';
-                 const isLanguage = key === 'language';
-
-                 return (
-                    <div key={key} className={`relative flex flex-col items-start ${isLanguage ? 'min-w-[230px]' : 'min-w-[130px]'}`}>
-                        {/* Label Container - Left Aligned */}
-                        <div className="h-4 flex items-center justify-start mb-2 w-full">
-                            {!isShapeType && !isShowNumbers && (
-                                <div className="flex items-center justify-start gap-2 text-[8px] font-black text-white/40 uppercase tracking-widest">
-                                    <span>{key}</span>
-                                    {isNumeric ? (
-                                      <input 
-                                        type="number"
-                                        step={config.step || 0.1}
-                                        min={config.min}
-                                        max={config.max}
-                                        value={effectParams[key]}
-                                        onChange={(e) => updateEffect(key, parseFloat(e.target.value) || 0)}
-                                        className="bg-transparent border-none text-white/80 w-12 p-0 focus:outline-none focus:text-white transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-black"
-                                      />
-                                    ) : (
-                                      <span className="text-white/80">{typeof effectParams[key] === 'boolean' ? '' : effectParams[key]}</span>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                        
-                        {/* Control Elements - Left Aligned */}
-                        <div className="flex items-center justify-start w-full h-8">
-                            {config.type === 'slider' ? (
-                                <input 
-                                    type="range" 
-                                    min={config.min} 
-                                    max={config.max} 
-                                    step={config.step} 
-                                    value={effectParams[key]} 
-                                    onChange={(e) => updateEffect(key, parseFloat(e.target.value))} 
-                                    className="w-full h-1 bg-white/20 rounded-full appearance-none accent-white cursor-pointer" 
-                                />
-                            ) : config.type === 'select' ? (
-                                <div className="flex w-full gap-1 bg-black/40 p-1 rounded-full border border-white/10 overflow-hidden">
-                                    {config.options?.map(o => (
-                                        <button
-                                            key={o}
-                                            onClick={() => updateEffect(key, o)}
-                                            className={`flex-1 flex items-center justify-center h-6 rounded-full text-[8px] font-black uppercase transition-all ${effectParams[key] === o ? 'bg-white text-zinc-900' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
-                                        >
-                                            {renderOptionContent(key, o)}
-                                        </button>
-                                    ))}
-                                </div>
-                            ) : (
-                                <button 
-                                    onClick={() => updateEffect(key, !effectParams[key])} 
-                                    className={`flex items-center justify-start gap-2 px-4 py-2 rounded-full text-[9px] font-bold uppercase transition-all border ${effectParams[key] ? 'bg-white/10 text-white border-white/20' : 'text-white/40 border-transparent hover:text-white'}`}
-                                >
-                                    {effectParams[key] ? <CheckSquare size={14} className="fill-white text-zinc-900" /> : <Square size={14}/>} 
-                                    <span className="ml-1">{key}</span>
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                 );
-             })}
-         </div>
+    <div className="flex w-full flex-col gap-2 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="rounded-[28px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+        <div className="grid grid-cols-7 gap-2">
+          {allEffects.map((effect) => {
+            const isActive = activeEffect.id === effect.id;
+            return (
+              <button
+                key={effect.id}
+                onClick={() => onSelectEffect(effect)}
+                className={`group flex min-h-[92px] flex-col justify-between rounded-lg border p-3 text-left transition ${isActive ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'}`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase leading-tight">{effect.name}</span>
+                    <span className={`rounded-full border px-2 py-0.5 text-[7px] font-black uppercase ${isActive ? 'border-zinc-950/20 bg-zinc-950/10 text-zinc-700' : statusTone(effect.status)}`}>
+                      {effect.status || 'Planned'}
+                    </span>
+                  </div>
+                  <p className={`mt-2 line-clamp-2 text-[8px] font-bold leading-snug ${isActive ? 'text-zinc-600' : 'text-white/45'}`}>{effect.description}</p>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className={`text-[7px] font-black uppercase ${isActive ? 'text-zinc-600' : 'text-white/35'}`}>GPU {effect.gpuLoad || 'Medium'}</span>
+                  <span className={`h-1.5 w-9 rounded-full ${isActive ? 'bg-zinc-950' : 'bg-white/25 group-hover:bg-white/50'}`} />
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Global Toolbar */}
-      <div className="flex flex-col gap-2">
-          {/* Row 1: Primary Color & State Controls */}
-          <div className="bg-zinc-900/40 backdrop-blur-2xl border border-white/10 rounded-full p-2 px-10 flex items-center justify-between gap-8 shadow-2xl shadow-black/40">
-                <div className="flex items-center gap-10">
-                    <div className="flex items-center gap-6">
-                        <SlidersHorizontal size={14} className="text-white/40" />
-                        
-                        {/* Hue */}
-                        <div className="flex flex-col gap-1 w-32">
-                            <div className="flex justify-between items-center text-[7px] font-black text-white/40 uppercase tracking-widest">
-                                <span>Hue</span>
-                                <input 
-                                  type="number" min="0" max="360" value={Math.round(globalParams.hue)}
-                                  onChange={(e) => handleHSLChange('hue', parseInt(e.target.value) || 0)}
-                                  className="bg-transparent border-none text-white w-8 text-right p-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-black"
-                                />
-                            </div>
-                            <input 
-                                type="range" min="0" max="360" value={globalParams.hue} 
-                                onChange={(e) => handleHSLChange('hue', parseInt(e.target.value))}
-                                className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
-                                style={{ background: 'linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)' }}
-                            />
-                        </div>
+      <div className="rounded-[28px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <button
+            onClick={() => updateGlobal('effectEnabled', !globalParams.effectEnabled)}
+            className={`flex h-8 items-center gap-2 rounded-full border px-4 text-[9px] font-black uppercase transition ${globalParams.effectEnabled ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/55 hover:bg-white/20'}`}
+          >
+            {globalParams.effectEnabled ? <CheckSquare size={14} /> : <Square size={14} />}
+            Effect
+          </button>
 
-                        {/* Saturation */}
-                        <div className="flex flex-col gap-1 w-24">
-                            <div className="flex justify-between items-center text-[7px] font-black text-white/40 uppercase tracking-widest">
-                                <span>Sat</span>
-                                <input 
-                                  type="number" min="0" max="100" value={Math.round(globalParams.saturation)}
-                                  onChange={(e) => handleHSLChange('saturation', parseInt(e.target.value) || 0)}
-                                  className="bg-transparent border-none text-white w-8 text-right p-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-black"
-                                />
-                            </div>
-                            <input 
-                                type="range" min="0" max="100" value={globalParams.saturation} 
-                                onChange={(e) => handleHSLChange('saturation', parseInt(e.target.value))}
-                                className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-white/10"
-                            />
-                        </div>
-
-                        {/* Lightness */}
-                        <div className="flex flex-col gap-1 w-24">
-                            <div className="flex justify-between items-center text-[7px] font-black text-white/40 uppercase tracking-widest">
-                                <span>Lum</span>
-                                <input 
-                                  type="number" min="0" max="100" value={Math.round(globalParams.lightness)}
-                                  onChange={(e) => handleHSLChange('lightness', parseInt(e.target.value) || 0)}
-                                  className="bg-transparent border-none text-white w-8 text-right p-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-black"
-                                />
-                            </div>
-                            <input 
-                                type="range" min="0" max="100" value={globalParams.lightness} 
-                                onChange={(e) => handleHSLChange('lightness', parseInt(e.target.value))}
-                                className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-white/10"
-                            />
-                        </div>
-
-                        {/* Color MIX Button */}
-                        <button 
-                          onClick={() => updateGlobal('colorMix', !globalParams.colorMix)} 
-                          className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${globalParams.colorMix ? 'bg-white text-zinc-900 border-white animate-pulse' : 'bg-white/10 text-white border-white/10 hover:bg-white/20'}`}
-                        >
-                          Color MIX
-                        </button>
-                    </div>
-                    
-                    <div className="h-6 w-px bg-white/10" />
-
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1.5 ">
-                            {[
-                              { key: 'bw', label: 'B&W' },
-                              { key: 'xray', label: 'Ray' },
-                              { key: 'thermal', label: 'Thermal' },
-                              { key: 'invert', label: 'Invert' },
-                            ].map((f) => (
-                              <button 
-                                key={f.key}
-                                onClick={() => updateGlobal(f.key as keyof GlobalParams, !globalParams[f.key as keyof GlobalParams])} 
-                                className={`px-5 py-2 rounded-full text-[9px] font-black transition-all border ${globalParams[f.key as keyof GlobalParams] ? 'bg-white text-zinc-900 border-white' : 'bg-white/10 text-white border-white/10 hover:border-white/40 hover:bg-white/20'}`}
-                              >
-                                {f.label}
-                              </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-6">
-                    <button 
-                      onClick={() => updateGlobal('autoTracking', !globalParams.autoTracking)} 
-                      className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[9px] font-black uppercase transition-all border ${globalParams.autoTracking ? 'bg-white text-zinc-900 border-white' : 'bg-white/10 text-white border border-white/10 hover:bg-white/20'}`}
-                    >
-                      <Target size={14} className={globalParams.autoTracking ? 'text-indigo-400 animate-pulse' : ''}/>
-                      Tracking
-                    </button>
-
-                    <div className="flex bg-white/10 rounded-full p-1 border border-white/10">
-                        {['subject', 'background', 'both'].map(m => (
-                            <button 
-                              key={m} 
-                              onClick={() => updateGlobal('applyTo', m)} 
-                              className={`px-6 py-2 rounded-full text-[8px] font-black uppercase transition-all ${globalParams.applyTo === m ? 'bg-white text-zinc-900 border border-white/10 shadow-sm' : 'text-white/60 hover:text-white'}`}
-                            >
-                              {m === 'background' ? 'BG' : m}
-                            </button>
-                        ))}
-                    </div>
-                    <button 
-                      onClick={() => updateGlobal('mixMode', !globalParams.mixMode)} 
-                      className={`flex items-center gap-3 px-6 py-2.5 rounded-full text-[9px] font-black uppercase transition-all ${globalParams.mixMode ? 'bg-white text-zinc-900 border-white' : 'bg-white/10 text-white border border-white/10 hover:bg-white/20'}`}
-                    >
-                      <Zap size={14} className={globalParams.mixMode ? 'animate-pulse text-yellow-400 fill-yellow-400' : ''}/>
-                      Mix
-                    </button>
-                </div>
+          <div className="min-w-[150px]">
+            <div className="flex justify-between text-[8px] font-black uppercase text-white/45">
+              <span>Effect Amount</span>
+              <span>{Math.round(globalParams.effectAmount * 100)}%</span>
+            </div>
+            <input type="range" min="0" max="1" step="0.01" value={globalParams.effectAmount} onChange={(e) => updateGlobal('effectAmount', parseFloat(e.target.value))} className="mt-2 h-1 w-full appearance-none rounded-full bg-white/15 accent-white" />
           </div>
 
-          {/* Row 2: Advanced Post-Processing */}
-          <div className="bg-zinc-900/40 backdrop-blur-2xl border border-white/10 rounded-full p-2 px-10 flex items-center justify-between gap-8 shadow-2xl shadow-black/40">
-                <div className="flex items-center gap-10">
-                    <div className="flex items-center gap-8">
-                        <Zap size={12} className="text-white/20" />
-                        
-                        {/* Exposure */}
-                        <div className="flex flex-col gap-1 w-24">
-                            <div className="flex justify-between items-center text-[7px] font-black text-white/40 uppercase tracking-widest">
-                                <span>Exposure</span>
-                                <span className="text-white/80">{globalParams.exposure.toFixed(1)}</span>
-                            </div>
-                            <input 
-                                type="range" min="-1" max="1" step="0.1" value={globalParams.exposure} 
-                                onChange={(e) => updateGlobal('exposure', parseFloat(e.target.value))}
-                                className="w-full h-1 bg-white/10 rounded-full appearance-none accent-white cursor-pointer"
-                            />
-                        </div>
-
-                        {/* Contrast */}
-                        <div className="flex flex-col gap-1 w-24">
-                            <div className="flex justify-between items-center text-[7px] font-black text-white/40 uppercase tracking-widest">
-                                <span>Contrast</span>
-                                <span className="text-white/80">{globalParams.contrast.toFixed(1)}</span>
-                            </div>
-                            <input 
-                                type="range" min="0.5" max="2" step="0.1" value={globalParams.contrast} 
-                                onChange={(e) => updateGlobal('contrast', parseFloat(e.target.value))}
-                                className="w-full h-1 bg-white/10 rounded-full appearance-none accent-white cursor-pointer"
-                            />
-                        </div>
-
-                        {/* Vignette */}
-                        <div className="flex flex-col gap-1 w-24">
-                            <div className="flex justify-between items-center text-[7px] font-black text-white/40 uppercase tracking-widest">
-                                <span>Vignette</span>
-                                <span className="text-white/80">{Math.round(globalParams.vignette * 100)}%</span>
-                            </div>
-                            <input 
-                                type="range" min="0" max="1" step="0.05" value={globalParams.vignette} 
-                                onChange={(e) => updateGlobal('vignette', parseFloat(e.target.value))}
-                                className="w-full h-1 bg-white/10 rounded-full appearance-none accent-white cursor-pointer"
-                            />
-                        </div>
-
-                        {/* Grain */}
-                        <div className="flex flex-col gap-1 w-24">
-                            <div className="flex justify-between items-center text-[7px] font-black text-white/40 uppercase tracking-widest">
-                                <span>Grain</span>
-                                <span className="text-white/80">{Math.round(globalParams.grain * 100)}%</span>
-                            </div>
-                            <input 
-                                type="range" min="0" max="1" step="0.05" value={globalParams.grain} 
-                                onChange={(e) => updateGlobal('grain', parseFloat(e.target.value))}
-                                className="w-full h-1 bg-white/10 rounded-full appearance-none accent-white cursor-pointer"
-                            />
-                        </div>
-
-                        {/* Chromatic Aberration */}
-                        <div className="flex flex-col gap-1 w-28">
-                            <div className="flex justify-between items-center text-[7px] font-black text-white/40 uppercase tracking-widest">
-                                <span>Abberation</span>
-                                <span className="text-white/80">{globalParams.chromaticAberration}px</span>
-                            </div>
-                            <input 
-                                type="range" min="0" max="10" step="0.5" value={globalParams.chromaticAberration} 
-                                onChange={(e) => updateGlobal('chromaticAberration', parseFloat(e.target.value))}
-                                className="w-full h-1 bg-white/10 rounded-full appearance-none accent-white cursor-pointer"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <button 
-                      onClick={() => updateGlobal('duotone', !globalParams.duotone)} 
-                      className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${globalParams.duotone ? 'bg-white text-zinc-900 border-white' : 'bg-white/10 text-white border-white/10 hover:bg-white/20'}`}
-                    >
-                      Duotone
-                    </button>
-                    
-                    <div className="h-6 w-px bg-white/10" />
-
-                    <div className="flex items-center gap-1.5">
-                        {[
-                          { key: 'dramaticWarm', label: 'Warm' },
-                          { key: 'dramaticCool', label: 'Cool' }
-                        ].map((f) => (
-                          <button 
-                            key={f.key}
-                            onClick={() => updateGlobal(f.key as keyof GlobalParams, !globalParams[f.key as keyof GlobalParams])} 
-                            className={`px-5 py-2 rounded-full text-[9px] font-black transition-all border ${globalParams[f.key as keyof GlobalParams] ? 'bg-white text-zinc-900 border-white' : 'bg-white/10 text-white border-white/10 hover:border-white/40 hover:bg-white/20'}`}
-                          >
-                            {f.label}
-                          </button>
-                        ))}
-                    </div>
-                </div>
+          <div className="min-w-[178px]">
+            <div className="mb-2 text-[8px] font-black uppercase text-white/45">Target</div>
+            <select value={globalParams.target} onChange={(e) => updateGlobal('target', e.target.value as GlobalParams['target'])} className="h-8 w-full rounded-full border border-white/10 bg-black/35 px-3 text-[9px] font-black uppercase text-white outline-none">
+              {TARGETS.map((target) => <option key={target.value} value={target.value}>{target.label}</option>)}
+            </select>
           </div>
+
+          <div className="min-w-[150px]">
+            <div className="mb-2 text-[8px] font-black uppercase text-white/45">Blend Mode</div>
+            <select value={globalParams.blendMode} onChange={(e) => updateGlobal('blendMode', e.target.value as BlendMode)} className="h-8 w-full rounded-full border border-white/10 bg-black/35 px-3 text-[9px] font-black uppercase text-white outline-none">
+              {BLEND_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+            </select>
+          </div>
+
+          {[
+            ['originalMix', 'Original Mix'],
+            ['maskFeather', 'Mask Feather'],
+            ['motionReactivity', 'Motion Reactivity'],
+            ['speed', 'Speed'],
+          ].map(([key, label]) => (
+            <div key={key} className="min-w-[132px]">
+              <div className="flex justify-between text-[8px] font-black uppercase text-white/45">
+                <span>{label}</span>
+                <span>{key === 'speed' ? globalParams.speed.toFixed(1) : `${Math.round(Number(globalParams[key as keyof GlobalParams]) * 100)}%`}</span>
+              </div>
+              <input
+                type="range"
+                min={key === 'speed' ? 0 : 0}
+                max={key === 'speed' ? 4 : 1}
+                step={key === 'speed' ? 0.1 : 0.01}
+                value={Number(globalParams[key as keyof GlobalParams])}
+                onChange={(e) => updateGlobal(key as keyof GlobalParams, parseFloat(e.target.value) as never)}
+                className="mt-2 h-1 w-full appearance-none rounded-full bg-white/15 accent-white"
+              />
+            </div>
+          ))}
+
+          <button onClick={resetActiveEffect} className="flex h-8 items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 text-[9px] font-black uppercase text-white/55 transition hover:bg-white/20 hover:text-white">
+            <RotateCcw size={13} />
+            Reset
+          </button>
+
+          {activeEffect.reference && (
+            <button onClick={() => window.open(activeEffect.reference?.url, '_blank', 'noopener,noreferrer')} className="flex h-8 items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 text-[9px] font-black uppercase text-white/55 transition hover:bg-white/20 hover:text-white">
+              <ExternalLink size={13} />
+              Info
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-full border border-white/10 bg-zinc-950/55 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex max-w-[720px] flex-1 flex-wrap items-center gap-4">
+            {(Object.entries(activeEffect.paramConfig) as [string, ParamConfig][]).map(renderParamControl)}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-full border border-white/10 bg-black/35 p-1">
+              {PREVIEW_MODES.map((mode) => (
+                <button
+                  key={mode.value}
+                  onClick={() => updateGlobal('previewMode', mode.value)}
+                  className={`h-7 rounded-full px-3 text-[8px] font-black uppercase transition ${globalParams.previewMode === mode.value ? 'bg-white text-zinc-950' : 'text-white/45 hover:bg-white/10 hover:text-white'}`}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+
+            <button onClick={playbackState.isPlaying ? onPause : onPlay} disabled={!isVideo} className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-30">
+              {playbackState.isPlaying ? <Pause size={14} /> : <Play size={14} />}
+            </button>
+            <button onClick={() => onStepFrame(-1)} disabled={!isVideo} className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-30">
+              <SkipBack size={14} />
+            </button>
+            <button onClick={() => onStepFrame(1)} disabled={!isVideo} className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-30">
+              <SkipForward size={14} />
+            </button>
+            <div className="flex min-w-[180px] items-center gap-2">
+              <span className="w-9 text-right text-[9px] font-black text-white/45">{formatTime(playbackState.currentTime)}</span>
+              <input type="range" min="0" max={playbackState.duration || 0} step="0.01" value={Math.min(playbackState.currentTime, playbackState.duration || 0)} onChange={(e) => onSeek(parseFloat(e.target.value))} disabled={!isVideo || !playbackState.duration} className="h-1 w-24 appearance-none rounded-full bg-white/15 accent-white disabled:opacity-30" />
+              <span className="w-9 text-[9px] font-black text-white/45">{formatTime(playbackState.duration)}</span>
+            </div>
+            <button onClick={onToggleLoop} disabled={!isVideo} className={`h-8 rounded-full border px-3 text-[8px] font-black uppercase transition disabled:opacity-30 ${playbackState.loop ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/45 hover:bg-white/20 hover:text-white'}`}>
+              Loop
+            </button>
+            <button onClick={onToggleMute} disabled={!isVideo} className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-30">
+              {playbackState.muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            </button>
+            <button onClick={onFullscreen} className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white transition hover:bg-white/20">
+              <Maximize2 size={14} />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

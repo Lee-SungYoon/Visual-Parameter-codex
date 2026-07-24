@@ -4,7 +4,7 @@ import Header from './components/Header';
 import CanvasRenderer, { CanvasRendererHandle } from './components/CanvasRenderer';
 import ControlPanel from './components/ControlPanel';
 import { EFFECTS, INITIAL_GLOBAL_PARAMS } from './constants';
-import { GlobalParams, EffectDef, ParamConfig } from './types';
+import { GlobalParams, EffectDef, ParamConfig, PlaybackState } from './types';
 import { randomFloat, randomInt, hslToHex } from './services/utils';
 
 const App: React.FC = () => {
@@ -14,7 +14,14 @@ const App: React.FC = () => {
   
   const [globalParams, setGlobalParams] = useState<GlobalParams>(INITIAL_GLOBAL_PARAMS);
   const [activeEffect, setActiveEffect] = useState<EffectDef>(EFFECTS[0]);
-  const [effectParams, setEffectParams] = useState<any>(EFFECTS[0].defaultParams);
+  const [effectParams, setEffectParams] = useState<Record<string, number | string | boolean>>(EFFECTS[0].defaultParams);
+  const [playbackState, setPlaybackState] = useState<PlaybackState>({
+    isPlaying: false,
+    currentTime: 0,
+    duration: 0,
+    loop: true,
+    muted: true,
+  });
 
   // ON AIR 전용 상태
   const [isOnAirActive, setIsOnAirActive] = useState(false);
@@ -76,6 +83,7 @@ const App: React.FC = () => {
     const url = URL.createObjectURL(file);
     setMediaSrc(url);
     setIsVideo(file.type.startsWith('video'));
+    setPlaybackState({ isPlaying: false, currentTime: 0, duration: 0, loop: true, muted: true });
   };
 
   const handleExport = () => {
@@ -104,7 +112,7 @@ const App: React.FC = () => {
       const mix = () => {
         const randomEffect = EFFECTS[Math.floor(Math.random() * EFFECTS.length)];
         setActiveEffect(randomEffect);
-        const newParams: any = {};
+        const newParams: Record<string, number | string | boolean> = {};
         (Object.entries(randomEffect.paramConfig) as [string, ParamConfig][]).forEach(([key, config]) => {
            if (config.randomRange) {
                newParams[key] = config.step && config.step % 1 === 0 
@@ -192,6 +200,7 @@ const App: React.FC = () => {
           globalParams={globalParams}
           onUpload={handleUpload}
           onExportStateChange={setIsExporting}
+          onPlaybackStateChange={setPlaybackState}
         />
       </main>
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-50 w-full px-6 max-w-[1600px] pointer-events-none">
@@ -205,6 +214,14 @@ const App: React.FC = () => {
               allEffects={EFFECTS}
               onSelectEffect={handleEffectSelect}
               isVideo={isVideo}
+              playbackState={playbackState}
+              onPlay={() => rendererRef.current?.play()}
+              onPause={() => rendererRef.current?.pause()}
+              onSeek={(time) => rendererRef.current?.seek(time)}
+              onStepFrame={(direction) => rendererRef.current?.stepFrame(direction)}
+              onToggleLoop={() => rendererRef.current?.setLoop(!playbackState.loop)}
+              onToggleMute={() => rendererRef.current?.setMuted(!playbackState.muted)}
+              onFullscreen={() => rendererRef.current?.enterFullscreen()}
             />
          </div>
       </div>
