@@ -279,10 +279,10 @@ export const EFFECTS: EffectDef[] = [
     status: 'Complete',
     gpuLoad: 'High',
     defaultParams: {
-      density: 45,
-      size: 350,
-      thickness: 8,
-      threshold: 80,
+      density: 9,
+      size: 45,
+      thickness: 1,
+      threshold: 255,
     },
     paramConfig: {
       density: { type: 'slider', min: 1, max: 150, step: 1, randomRange: [30, 80] },
@@ -455,10 +455,10 @@ export const LEGACY_EFFECTS: EffectDef[] = [
     name: 'GLITCH',
     description: 'Massive Pixel Sorting glitch effect',
     defaultParams: {
-      density: 45,
-      size: 350,
-      thickness: 8,
-      threshold: 80,
+      density: 9,
+      size: 45,
+      thickness: 1,
+      threshold: 255,
     },
     paramConfig: {
       density: { type: 'slider', min: 1, max: 150, step: 1, randomRange: [30, 80] },
