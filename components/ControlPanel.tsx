@@ -1,22 +1,24 @@
 import React from 'react';
-import { AnimationMode, BlendMode, EffectDef, GlobalParams, GraphicStylePreset, ParamConfig, PlaybackState, PreviewMode } from '../types';
+import { EffectDef, GlobalParams, ParamConfig, PlaybackState, PreviewMode } from '../types';
 import {
   CheckSquare,
   Circle,
-  ExternalLink,
   Hash,
   Maximize2,
   MousePointer2,
   Pause,
   Play,
-  RotateCcw,
+  SlidersHorizontal,
   SkipBack,
   SkipForward,
   Square,
+  Target,
   Type,
   Volume2,
   VolumeX,
+  Zap,
 } from 'lucide-react';
+import { hslToHex } from '../services/utils';
 
 interface ControlPanelProps {
   globalParams: GlobalParams;
@@ -37,34 +39,6 @@ interface ControlPanelProps {
   onFullscreen: () => void;
 }
 
-const TARGETS = [
-  { label: 'Entire Video', value: 'entire' },
-  { label: 'Person', value: 'person' },
-  { label: 'Face', value: 'face' },
-  { label: 'Hands', value: 'hands' },
-  { label: 'Background', value: 'background' },
-  { label: 'Detected Object', value: 'object' },
-  { label: 'Motion Area', value: 'motion' },
-  { label: 'Depth Range', value: 'depth' },
-] as const;
-
-const BLEND_MODES: BlendMode[] = ['normal', 'screen', 'add', 'multiply', 'difference'];
-const STYLE_PRESETS: { label: string; value: GraphicStylePreset; color: string; blendMode: BlendMode; originalMix: number }[] = [
-  { label: 'Minimal White', value: 'minimal_white', color: '#ffffff', blendMode: 'screen', originalMix: 0.18 },
-  { label: 'Tech Green', value: 'tech_green', color: '#d9ff00', blendMode: 'screen', originalMix: 0.12 },
-  { label: 'Digital Blue', value: 'digital_blue', color: '#66d9ff', blendMode: 'screen', originalMix: 0.16 },
-  { label: 'Luxury Gold', value: 'luxury_gold', color: '#d5b56e', blendMode: 'screen', originalMix: 0.18 },
-  { label: 'Monochrome', value: 'monochrome', color: '#d8d8d8', blendMode: 'screen', originalMix: 0.2 },
-  { label: 'Custom', value: 'custom', color: '#40bfbf', blendMode: 'screen', originalMix: 0.18 },
-];
-const ANIMATION_MODES: { label: string; value: AnimationMode }[] = [
-  { label: 'Static', value: 'static' },
-  { label: 'Float', value: 'float' },
-  { label: 'Pulse', value: 'pulse' },
-  { label: 'Follow Motion', value: 'follow_motion' },
-  { label: 'Expand', value: 'expand' },
-  { label: 'Scan', value: 'scan' },
-];
 const PREVIEW_MODES: { label: string; value: PreviewMode }[] = [
   { label: 'Original', value: 'original' },
   { label: 'Effect', value: 'effect' },
@@ -98,6 +72,19 @@ const renderOptionIcon = (option: string) => {
   return <span className="px-2">{option}</span>;
 };
 
+const MODE_BUTTONS = [
+  { label: 'B&W', key: 'bw' },
+  { label: 'Ray', key: 'xray' },
+  { label: 'Thermal', key: 'thermal' },
+  { label: 'Invert', key: 'invert' },
+] as const;
+
+const TARGET_BUTTONS = [
+  { label: 'SUBJECT', value: 'subject' },
+  { label: 'BG', value: 'background' },
+  { label: 'BOTH', value: 'both' },
+] as const;
+
 const ControlPanel: React.FC<ControlPanelProps> = ({
   globalParams,
   setGlobalParams,
@@ -124,27 +111,15 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     setEffectParams({ ...effectParams, [key]: val });
   };
 
-  const resetActiveEffect = () => {
-    setEffectParams(activeEffect.defaultParams);
-    setGlobalParams({
+  const updateColorParam = (key: 'hue' | 'saturation' | 'lightness', value: number) => {
+    const next = {
       ...globalParams,
-      effectEnabled: true,
-      effectAmount: 0.85,
-      originalMix: 0.25,
-      maskFeather: 0.2,
-      motionReactivity: 0.5,
-      speed: 1,
-    });
-  };
-
-  const applyStylePreset = (value: GraphicStylePreset) => {
-    const preset = STYLE_PRESETS.find((item) => item.value === value) || STYLE_PRESETS[0];
+      [key]: value,
+      stylePreset: 'custom' as const,
+    };
     setGlobalParams({
-      ...globalParams,
-      stylePreset: value,
-      effectColor: value === 'custom' ? globalParams.effectColor : preset.color,
-      blendMode: preset.blendMode,
-      originalMix: preset.originalMix,
+      ...next,
+      effectColor: hslToHex(next.hue, next.saturation, next.lightness),
     });
   };
 
@@ -162,6 +137,107 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           </button>
         );
       })}
+    </div>
+  );
+
+  const renderColorSlider = (
+    key: 'hue' | 'saturation' | 'lightness',
+    label: string,
+    min: number,
+    max: number,
+    gradientClass?: string,
+  ) => {
+    const value = globalParams[key];
+    return (
+      <div className="min-w-[132px]">
+        <div className="mb-2 flex items-center justify-between text-[8px] font-black uppercase text-white/45">
+          <span>{label}</span>
+          <span className="tabular-nums text-white/80">{Math.round(value)}</span>
+        </div>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={1}
+          value={value}
+          onChange={(event) => updateColorParam(key, parseFloat(event.target.value))}
+          className={`h-1 w-full appearance-none rounded-full accent-white ${gradientClass || 'bg-white/15'}`}
+        />
+      </div>
+    );
+  };
+
+  const renderModeButton = ({ label, key }: (typeof MODE_BUTTONS)[number]) => {
+    const active = Boolean(globalParams[key]);
+    return (
+      <button
+        key={key}
+        onClick={() => updateGlobal(key, !active)}
+        className={`h-9 rounded-full border px-6 text-[9px] font-black transition ${
+          active ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/70 hover:border-white/35 hover:bg-white/15'
+        }`}
+      >
+        {label}
+      </button>
+    );
+  };
+
+  const renderGlobalMenu = () => (
+    <div className="flex flex-wrap items-center justify-between gap-x-7 gap-y-3">
+      <div className="flex flex-wrap items-center gap-x-7 gap-y-3">
+        <SlidersHorizontal size={16} className="text-white/35" />
+        {renderColorSlider('hue', 'HUE', 0, 360, 'bg-[linear-gradient(90deg,#ff003c,#ffee00,#00ff73,#00d5ff,#332cff,#ff00c8,#ff003c)]')}
+        {renderColorSlider('saturation', 'SAT', 0, 100)}
+        {renderColorSlider('lightness', 'LUM', 0, 100)}
+        <button
+          onClick={() => updateGlobal('colorMix', !globalParams.colorMix)}
+          className={`h-10 min-w-[150px] rounded-full border px-7 text-[10px] font-black uppercase transition ${
+            globalParams.colorMix ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'
+          }`}
+        >
+          Color Mix
+        </button>
+        <div className="hidden h-9 w-px bg-white/10 lg:block" />
+        <div className="flex flex-wrap items-center gap-2">
+          {MODE_BUTTONS.map(renderModeButton)}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-6">
+        <button
+          onClick={() => updateGlobal('autoTracking', !globalParams.autoTracking)}
+          className={`flex h-10 items-center gap-3 rounded-full border px-7 text-[10px] font-black uppercase transition ${
+            globalParams.autoTracking ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'
+          }`}
+        >
+          <Target size={14} />
+          Tracking
+        </button>
+
+        <div className="flex rounded-full border border-white/10 bg-black/25 p-1">
+          {TARGET_BUTTONS.map((target) => (
+            <button
+              key={target.value}
+              onClick={() => updateGlobal('target', target.value)}
+              className={`h-8 min-w-[84px] rounded-full px-4 text-[8px] font-black uppercase transition ${
+                globalParams.target === target.value ? 'bg-white text-zinc-950' : 'text-white/45 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              {target.label}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => updateGlobal('mixMode', !globalParams.mixMode)}
+          className={`flex h-10 items-center gap-3 rounded-full border px-7 text-[10px] font-black uppercase transition ${
+            globalParams.mixMode ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'
+          }`}
+        >
+          <Zap size={15} />
+          Mix
+        </button>
+      </div>
     </div>
   );
 
@@ -244,96 +320,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       </div>
 
       <div className="rounded-[18px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-          <button
-            onClick={() => updateGlobal('effectEnabled', !globalParams.effectEnabled)}
-            className={`flex h-8 items-center gap-2 rounded-full border px-4 text-[9px] font-black uppercase transition ${globalParams.effectEnabled ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/55 hover:bg-white/20'}`}
-          >
-            {globalParams.effectEnabled ? <CheckSquare size={14} /> : <Square size={14} />}
-            Effect
-          </button>
-
-          <div className="min-w-[150px]">
-            <div className="flex justify-between text-[8px] font-black uppercase text-white/45">
-              <span>Effect Amount</span>
-              <span>{Math.round(globalParams.effectAmount * 100)}%</span>
-            </div>
-            <input type="range" min="0" max="1" step="0.01" value={globalParams.effectAmount} onChange={(e) => updateGlobal('effectAmount', parseFloat(e.target.value))} className="mt-2 h-1 w-full appearance-none rounded-full bg-white/15 accent-white" />
-          </div>
-
-          <div className="min-w-[178px]">
-            <div className="mb-2 text-[8px] font-black uppercase text-white/45">Target</div>
-            <select value={globalParams.target} onChange={(e) => updateGlobal('target', e.target.value as GlobalParams['target'])} className="h-8 w-full rounded-full border border-white/10 bg-black/35 px-3 text-[9px] font-black uppercase text-white outline-none">
-              {TARGETS.map((target) => <option key={target.value} value={target.value}>{target.label}</option>)}
-            </select>
-          </div>
-
-          <div className="min-w-[172px]">
-            <div className="mb-2 text-[8px] font-black uppercase text-white/45">Style Preset</div>
-            <select value={globalParams.stylePreset} onChange={(e) => applyStylePreset(e.target.value as GraphicStylePreset)} className="h-8 w-full rounded-full border border-white/10 bg-black/35 px-3 text-[9px] font-black uppercase text-white outline-none">
-              {STYLE_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}
-            </select>
-          </div>
-
-          <div className="min-w-[172px]">
-            <div className="mb-2 text-[8px] font-black uppercase text-white/45">Animation Mode</div>
-            <select value={globalParams.animationMode} onChange={(e) => updateGlobal('animationMode', e.target.value as AnimationMode)} className="h-8 w-full rounded-full border border-white/10 bg-black/35 px-3 text-[9px] font-black uppercase text-white outline-none">
-              {ANIMATION_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
-            </select>
-          </div>
-
-          <div className="min-w-[86px]">
-            <div className="mb-2 text-[8px] font-black uppercase text-white/45">Color</div>
-            <input
-              type="color"
-              value={globalParams.effectColor}
-              onChange={(e) => setGlobalParams({ ...globalParams, stylePreset: 'custom', effectColor: e.target.value })}
-              className="h-8 w-full cursor-pointer rounded-full border border-white/10 bg-black/35 p-1"
-            />
-          </div>
-
-          <div className="min-w-[150px]">
-            <div className="mb-2 text-[8px] font-black uppercase text-white/45">Blend Mode</div>
-            <select value={globalParams.blendMode} onChange={(e) => updateGlobal('blendMode', e.target.value as BlendMode)} className="h-8 w-full rounded-full border border-white/10 bg-black/35 px-3 text-[9px] font-black uppercase text-white outline-none">
-              {BLEND_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
-            </select>
-          </div>
-
-          {[
-            ['originalMix', 'Original Mix'],
-            ['maskFeather', 'Mask Feather'],
-            ['motionReactivity', 'Motion Reactivity'],
-            ['speed', 'Speed'],
-          ].map(([key, label]) => (
-            <div key={key} className="min-w-[132px]">
-              <div className="flex justify-between text-[8px] font-black uppercase text-white/45">
-                <span>{label}</span>
-                <span>{key === 'speed' ? globalParams.speed.toFixed(1) : `${Math.round(Number(globalParams[key as keyof GlobalParams]) * 100)}%`}</span>
-              </div>
-              <input
-                type="range"
-                min={key === 'speed' ? 0 : 0}
-                max={key === 'speed' ? 4 : 1}
-                step={key === 'speed' ? 0.1 : 0.01}
-                value={Number(globalParams[key as keyof GlobalParams])}
-                onChange={(e) => updateGlobal(key as keyof GlobalParams, parseFloat(e.target.value) as never)}
-                className="mt-2 h-1 w-full appearance-none rounded-full bg-white/15 accent-white"
-              />
-            </div>
-          ))}
-
-          <button onClick={resetActiveEffect} className="flex h-8 items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 text-[9px] font-black uppercase text-white/55 transition hover:bg-white/20 hover:text-white">
-            <RotateCcw size={13} />
-            Reset
-          </button>
-
-          {activeEffect.reference && (
-            <button onClick={() => window.open(activeEffect.reference?.url, '_blank', 'noopener,noreferrer')} className="flex h-8 items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 text-[9px] font-black uppercase text-white/55 transition hover:bg-white/20 hover:text-white">
-              <ExternalLink size={13} />
-              Info
-            </button>
-          )}
-        </div>
+        {renderGlobalMenu()}
       </div>
 
       <div className="rounded-[18px] border border-white/10 bg-zinc-950/55 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
