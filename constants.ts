@@ -220,13 +220,13 @@ export const EFFECTS: EffectDef[] = [
     defaultParams: {
       shapeType: 'arrow',
       threshold: 62.5,
-      dotSize: 7.75,
+      dotSize: 15.5,
       dotRandom: 0.5,
     },
     paramConfig: {
       shapeType: { type: 'select', options: ['arrow', 'dot', 'square', 'number', 'alphabet'] },
       threshold: { type: 'slider', min: 5, max: 120, step: 0.5, randomRange: [20, 70] },
-      dotSize: { type: 'slider', min: 0.5, max: 15, step: 0.25, randomRange: [1, 5] },
+      dotSize: { type: 'slider', min: 1, max: 30, step: 0.25, randomRange: [8, 18] },
       dotRandom: { type: 'slider', min: 0, max: 1, step: 0.1, randomRange: [0.1, 0.8] },
     },
   },
