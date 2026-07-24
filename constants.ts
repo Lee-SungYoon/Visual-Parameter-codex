@@ -69,11 +69,7 @@ export const EFFECTS: EffectDef[] = [
       trailLength: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.65, 1] },
       decay: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.2, 0.55] },
       blur: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.35, 0.8] },
-      feedbackScale: { type: 'slider', min: 0.96, max: 1.08, step: 0.001, randomRange: [1.01, 1.05] },
-      rotation: { type: 'slider', min: -0.08, max: 0.08, step: 0.001, randomRange: [-0.04, 0.04] },
       glow: { type: 'slider', min: 0, max: 2, step: 0.01, randomRange: [0.8, 1.6] },
-      motionReactivity: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.65, 1] },
-      effectAmount: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.75, 1] },
     },
   },
   {
@@ -96,12 +92,9 @@ export const EFFECTS: EffectDef[] = [
     paramConfig: {
       rgbAmount: { type: 'slider', min: 0, max: 0.1, step: 0.001, randomRange: [0.025, 0.06] },
       direction: { type: 'select', options: ['horizontal', 'vertical', 'diagonal', 'radial'] },
-      radialAmount: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.55, 1] },
       jitter: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.15, 0.45] },
       lensDistortion: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.25, 0.7] },
-      motionReactivity: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.55, 1] },
       edgeOnly: { type: 'toggle' },
-      effectAmount: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.75, 1] },
     },
   },
   {
@@ -126,10 +119,6 @@ export const EFFECTS: EffectDef[] = [
       edgeThreshold: { type: 'slider', min: 0.02, max: 0.8, step: 0.01, randomRange: [0.08, 0.22] },
       glow: { type: 'slider', min: 0, max: 2.5, step: 0.05, randomRange: [1, 2] },
       trail: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.25, 0.7] },
-      growth: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.25, 0.75] },
-      backgroundDim: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.25, 0.55] },
-      motionReactivity: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.55, 1] },
-      edgeColor: { type: 'color' },
     },
   },
   {
@@ -154,10 +143,7 @@ export const EFFECTS: EffectDef[] = [
       threshold: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.2, 0.5] },
       sortLength: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.35, 0.8] },
       blockSize: { type: 'slider', min: 2, max: 64, step: 1, randomRange: [8, 22] },
-      noise: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.15, 0.55] },
-      speed: { type: 'slider', min: 0, max: 4, step: 0.1, randomRange: [0.8, 2.4] },
       stretchAmount: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.45, 1] },
-      motionReactivity: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.45, 1] },
     },
   },
   {
@@ -182,10 +168,7 @@ export const EFFECTS: EffectDef[] = [
       direction: { type: 'select', options: ['horizontal', 'vertical', 'radial'] },
       scanWidth: { type: 'slider', min: 0.02, max: 0.6, step: 0.01, randomRange: [0.08, 0.3] },
       delay: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.18, 0.55] },
-      repeat: { type: 'slider', min: 1, max: 8, step: 1, randomRange: [2, 5] },
       wave: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.35, 0.9] },
-      maskFeather: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.1, 0.4] },
-      timeOffset: { type: 'slider', min: 0, max: 1, step: 0.01, randomRange: [0.08, 0.35] },
     },
   },
   {
@@ -204,7 +187,6 @@ export const EFFECTS: EffectDef[] = [
     },
     paramConfig: {
       segments: { type: 'slider', min: 2, max: 24, step: 1, randomRange: [6, 12] },
-      radius: { type: 'slider', min: 0.1, max: 2, step: 0.1, randomRange: [0.5, 1.2] },
       rotation: { type: 'slider', min: 0, max: Math.PI * 2, step: 0.05, randomRange: [0, 3.14] },
       zoom: { type: 'slider', min: 0.5, max: 4, step: 0.1, randomRange: [1, 2.5] },
       mirror: { type: 'toggle' },
@@ -227,7 +209,6 @@ export const EFFECTS: EffectDef[] = [
     paramConfig: {
       gridSize: { type: 'slider', min: 10, max: 60, step: 1, randomRange: [15, 35] },
       recursive: { type: 'slider', min: 0, max: 4, step: 1, randomRange: [1, 3] },
-      wireframe: { type: 'toggle' },
       shape: { type: 'select', options: ['triangle', 'hexagon', 'rhombus'] },
       displacement: { type: 'slider', min: 0, max: 100, step: 1, randomRange: [10, 40] },
     },
@@ -267,6 +248,7 @@ export const EFFECTS: EffectDef[] = [
     paramConfig: {
       pixelSize: { type: 'slider', min: 2, max: 64, step: 1, randomRange: [8, 24] },
       sizeVariance: { type: 'slider', min: 0, max: 1, step: 0.05, randomRange: [0, 0.5] },
+      posterize: { type: 'slider', min: 2, max: 12, step: 1, randomRange: [4, 8] },
     },
   },
   {
@@ -284,6 +266,7 @@ export const EFFECTS: EffectDef[] = [
     paramConfig: {
       dotSize: { type: 'slider', min: 2, max: 40, step: 1, randomRange: [5, 20] },
       dotSizeRandom: { type: 'slider', min: 0, max: 1, step: 0.05, randomRange: [0.1, 0.5] },
+      angle: { type: 'slider', min: 0, max: 180, step: 1, randomRange: [15, 75] },
     },
   },
   {
@@ -304,14 +287,10 @@ export const EFFECTS: EffectDef[] = [
       showNumbers: true,
     },
     paramConfig: {
-      shapeType: { type: 'select', options: ['arrow', 'dot', 'square', 'number', 'alphabet'] },
       pointCount: { type: 'slider', min: 50, max: 600, step: 10, randomRange: [150, 400] },
       linkDistance: { type: 'slider', min: 10, max: 150, step: 5, randomRange: [40, 90] },
       lineWidth: { type: 'slider', min: 0.2, max: 5, step: 0.1, randomRange: [0.5, 1.5] },
-      pointSize: { type: 'slider', min: 1, max: 10, step: 0.5, randomRange: [3, 6] },
-      pointSizeRandom: { type: 'slider', min: 0, max: 1, step: 0.05, randomRange: [0.1, 0.5] },
       jitter: { type: 'slider', min: 0, max: 20, step: 0.1, randomRange: [1, 5] },
-      showNumbers: { type: 'toggle' },
     },
   },
   {

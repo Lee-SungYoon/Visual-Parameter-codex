@@ -75,6 +75,17 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs}`;
 };
 
+const formatParamLabel = (key: string) => key.replace(/([A-Z])/g, ' $1').toUpperCase();
+
+const formatParamValue = (value: number | string | boolean, config?: ParamConfig) => {
+  if (typeof value === 'boolean') return value ? 'ON' : 'OFF';
+  if (typeof value === 'string') return value.toUpperCase();
+  if (config?.max === 1 && config?.min === 0) return `${Math.round(value * 100)}`;
+  if (Number.isInteger(value)) return `${value}`;
+  if (Math.abs(value) < 0.1) return value.toFixed(3);
+  return value.toFixed(1);
+};
+
 const ControlPanel: React.FC<ControlPanelProps> = ({
   globalParams,
   setGlobalParams,
@@ -133,7 +144,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           <button
             key={effect.id}
             onClick={() => onSelectEffect(effect)}
-            className={`h-10 rounded-[24px] border px-3 text-[10px] font-black uppercase transition ${isActive ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/55 hover:border-white/35 hover:bg-white/15 hover:text-white'}`}
+            className={`h-10 rounded-[18px] border px-3 text-[10px] font-black uppercase transition ${isActive ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/55 hover:border-white/35 hover:bg-white/15 hover:text-white'}`}
           >
             {effect.name}
           </button>
@@ -144,23 +155,15 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
   const renderParamControl = ([key, config]: [string, ParamConfig]) => {
     const value = effectParams[key];
-    const label = key.replace(/([A-Z])/g, ' $1');
+    const label = formatParamLabel(key);
 
     if (config.type === 'slider') {
       const numericValue = typeof value === 'number' ? value : Number(value) || 0;
       return (
-        <div key={key} className="min-w-[132px] flex-1 max-w-[210px]">
-          <div className="flex items-center justify-between gap-3 text-[8px] font-black uppercase text-white/45">
+        <div key={key} className="min-w-[128px] flex-1 max-w-[188px]">
+          <div className="flex items-center justify-between gap-3 text-[8px] font-black text-white/45">
             <span className="truncate">{label}</span>
-            <input
-              type="number"
-              min={config.min}
-              max={config.max}
-              step={config.step}
-              value={numericValue}
-              onChange={(event) => updateEffect(key, parseFloat(event.target.value) || 0)}
-              className="w-12 bg-transparent text-right text-white/80 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-            />
+            <span className="tabular-nums text-white/75">{formatParamValue(numericValue, config)}</span>
           </div>
           <input
             type="range"
@@ -222,11 +225,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
   return (
     <div className="flex w-full flex-col gap-2 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="rounded-[24px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+      <div className="rounded-[18px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
         {renderEffectMenu()}
       </div>
 
-      <div className="rounded-[24px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+      <div className="rounded-[18px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <button
             onClick={() => updateGlobal('effectEnabled', !globalParams.effectEnabled)}
@@ -319,7 +322,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
       </div>
 
-      <div className="rounded-[24px] border border-white/10 bg-zinc-950/55 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+      <div className="rounded-[18px] border border-white/10 bg-zinc-950/55 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex max-w-[720px] flex-1 flex-wrap items-center gap-4">
             {(Object.entries(activeEffect.paramConfig) as [string, ParamConfig][]).map(renderParamControl)}
