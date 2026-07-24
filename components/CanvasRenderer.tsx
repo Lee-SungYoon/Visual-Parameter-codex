@@ -143,17 +143,26 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
       if (!canvasRef.current || !mediaSrc) return;
       const canvas = canvasRef.current;
       const chunks: Blob[] = [];
+      const canvasStream = (canvas as HTMLCanvasElement & { captureStream: (frameRate?: number) => MediaStream }).captureStream(60);
+      const exportStream = new MediaStream(canvasStream.getVideoTracks());
+      const sourceVideo = isVideo ? sourceVideoRef.current : null;
+      const sourceCaptureStream = sourceVideo && 'captureStream' in sourceVideo
+        ? (sourceVideo as HTMLVideoElement & { captureStream: () => MediaStream }).captureStream()
+        : null;
+      sourceCaptureStream?.getAudioTracks().forEach((track) => exportStream.addTrack(track));
       
       const mimeTypes = [
         'video/mp4;codecs=h264',
         'video/mp4;codecs=avc1',
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
         'video/webm;codecs=h264',
         'video/webm;codecs=vp9',
         'video/webm'
       ];
       const mimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || 'video/webm';
       
-      const recorder = new MediaRecorder((canvas as any).captureStream(60), { 
+      const recorder = new MediaRecorder(exportStream, {
         mimeType, 
         videoBitsPerSecond: 15000000 // 고화질을 위해 15Mbps로 상향
       });
@@ -173,6 +182,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
         setExportProgress(0); 
         setExportEta(0); 
         onExportStateChange?.(false);
+        exportStream.getTracks().forEach((track) => track.stop());
         
         if (sourceVideoRef.current) {
           sourceVideoRef.current.muted = muted;

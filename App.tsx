@@ -132,6 +132,14 @@ const App: React.FC = () => {
            }
         });
         setEffectParams(newParams);
+        const colorMode = randomInt(0, 4);
+        setGlobalParams(prev => ({
+          ...prev,
+          bw: colorMode === 1,
+          xray: colorMode === 2,
+          thermal: colorMode === 3,
+          invert: colorMode === 4,
+        }));
       };
       mix();
       interval = setInterval(mix, 2500);
