@@ -15,6 +15,7 @@ interface CanvasRendererProps {
   onExportStateChange?: (isExporting: boolean) => void;
   onPlaybackStateChange?: (state: PlaybackState) => void;
   isCleanFeed?: boolean;
+  audioEnabled?: boolean;
 }
 
 export interface CanvasRendererHandle {
@@ -37,7 +38,8 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   onUpload,
   onExportStateChange,
   onPlaybackStateChange,
-  isCleanFeed = false
+  isCleanFeed = false,
+  audioEnabled = true
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const internalCanvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
@@ -59,7 +61,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
     currentTime: 0,
     duration: 0,
     loop: true,
-    muted: true,
+    muted: !audioEnabled,
   });
 
   const [unitSize, setUnitSize] = useState({ w: 0, h: 0 });
@@ -71,6 +73,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportEta, setExportEta] = useState(0);
+  const [muted, setMutedState] = useState(!audioEnabled);
 
   const trackingOffsetRef = useRef({ x: 0, y: 0, scale: 1.0 });
   const MIN_PROC_WIDTH = 960;
@@ -95,18 +98,30 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   ]);
 
   useEffect(() => {
+    setMutedState(!audioEnabled);
+  }, [audioEnabled, mediaSrc]);
+
+  useEffect(() => {
+    if (sourceVideoRef.current) {
+      sourceVideoRef.current.muted = muted;
+      publishPlaybackState();
+    }
+  }, [muted]);
+
+  useEffect(() => {
     if (isVideo && mediaLoaded && sourceVideoRef.current) {
         const playVideo = async () => {
             try {
-                sourceVideoRef.current!.muted = true;
+                sourceVideoRef.current!.muted = muted;
                 await sourceVideoRef.current!.play();
+                publishPlaybackState();
             } catch (err) {
                 console.warn("Autoplay blocked.");
             }
         };
         playVideo();
     }
-  }, [mediaSrc, mediaLoaded, isVideo]);
+  }, [mediaSrc, mediaLoaded, isVideo, muted]);
 
   const publishPlaybackState = () => {
     const video = sourceVideoRef.current;
@@ -160,7 +175,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
         onExportStateChange?.(false);
         
         if (sourceVideoRef.current) {
-          sourceVideoRef.current.muted = true;
+          sourceVideoRef.current.muted = muted;
           sourceVideoRef.current.loop = true; // 다시 루프 활성화
           sourceVideoRef.current.play();
         }
@@ -243,6 +258,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
     },
     setMuted: (muted: boolean) => {
       if (!sourceVideoRef.current) return;
+      setMutedState(muted);
       sourceVideoRef.current.muted = muted;
       publishPlaybackState();
     },
@@ -531,7 +547,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
     return (
       <div className="w-full h-full bg-black flex items-center justify-center overflow-hidden" ref={containerRef}>
         {mediaSrc && isVideo && (
-            <video ref={sourceVideoRef} src={mediaSrc} className="hidden" muted loop playsInline autoPlay onLoadedMetadata={() => { setMediaLoaded(true); publishPlaybackState(); }} onTimeUpdate={publishPlaybackState} onPlay={publishPlaybackState} onPause={publishPlaybackState} onDurationChange={publishPlaybackState} />
+            <video ref={sourceVideoRef} src={mediaSrc} className="hidden" muted={muted} loop playsInline autoPlay onLoadedMetadata={() => { setMediaLoaded(true); publishPlaybackState(); }} onTimeUpdate={publishPlaybackState} onPlay={publishPlaybackState} onPause={publishPlaybackState} onDurationChange={publishPlaybackState} />
         )}
         {mediaSrc && !isVideo && (
             <img ref={sourceImageRef} src={mediaSrc} className="hidden" onLoad={() => setMediaLoaded(true)} />
@@ -612,7 +628,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
           </div>
         )}
         {mediaSrc && isVideo && (
-            <video ref={sourceVideoRef} src={mediaSrc} className="w-full h-full object-cover" muted loop playsInline autoPlay onLoadedMetadata={() => { setMediaLoaded(true); publishPlaybackState(); }} onTimeUpdate={publishPlaybackState} onPlay={publishPlaybackState} onPause={publishPlaybackState} onDurationChange={publishPlaybackState} />
+            <video ref={sourceVideoRef} src={mediaSrc} className="w-full h-full object-cover" muted={muted} loop playsInline autoPlay onLoadedMetadata={() => { setMediaLoaded(true); publishPlaybackState(); }} onTimeUpdate={publishPlaybackState} onPlay={publishPlaybackState} onPause={publishPlaybackState} onDurationChange={publishPlaybackState} />
         )}
         {mediaSrc && !isVideo && (
             <img ref={sourceImageRef} src={mediaSrc} className="w-full h-full object-cover" onLoad={() => setMediaLoaded(true)} />

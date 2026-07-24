@@ -270,10 +270,37 @@ void main() {
     effectUv = vec2(cos(angle) * radius / aspect, sin(angle) * radius) + 0.5;
   } else if (u_effect == 2) {
     effectUv = kaleidoUv(uv, u_params[0], u_params[3], u_params[2], u_params[4]);
+  } else if (u_effect == 3) {
+    vec2 c = trackedCenter();
+    float subject = trackedMask(uv, 0.18);
+    vec2 p = (uv - c) * u_resolution / max(u_params[0], 8.0);
+    vec2 local = fract(p) - 0.5;
+    float cellWave = sin((floor(p.x) * 1.37 + floor(p.y) * 1.91) + u_time * 0.85);
+    effectUv += normalize(local + vec2(0.0001)) * cellWave * u_params[3] * 0.0018 * (0.35 + subject);
+  } else if (u_effect == 4) {
+    float edgeProbe = length(sampleSource(uv + vec2(0.002, 0.0)).rgb - sampleSource(uv - vec2(0.002, 0.0)).rgb);
+    edgeProbe += length(sampleSource(uv + vec2(0.0, 0.002)).rgb - sampleSource(uv - vec2(0.0, 0.002)).rgb);
+    float subject = trackedMask(uv, 0.14);
+    vec2 c = trackedCenter();
+    effectUv += normalize(uv - c + vec2(0.0001)) * smoothstep(u_params[1] / 255.0, 0.45, edgeProbe) * u_params[2] * 0.0016 * (0.4 + subject);
   } else if (u_effect == 5) {
     float size = max(u_params[0], 2.0);
     vec2 grid = vec2(size) / u_resolution;
     effectUv = (floor(uv / grid) + 0.5) * grid;
+  } else if (u_effect == 6) {
+    vec2 c = trackedCenter();
+    float subject = trackedMask(uv, 0.2);
+    float dotSize = max(u_params[0], 4.0);
+    vec2 grid = floor((uv + (uv - c) * subject * 0.025) * u_resolution / dotSize);
+    vec2 jitter = vec2(hash(grid), hash(grid + 4.7)) - 0.5;
+    effectUv += jitter * u_params[1] * dotSize / u_resolution * 0.75;
+  } else if (u_effect == 7) {
+    vec2 c = trackedCenter();
+    float subject = trackedMask(uv, 0.22);
+    float density = mix(18.0, 95.0, clamp(u_params[1] / 600.0, 0.0, 1.0));
+    vec2 grid = floor(uv * density);
+    vec2 jitter = vec2(hash(grid + u_time * 0.18), hash(grid + 9.31 + u_time * 0.12)) - 0.5;
+    effectUv += ((uv - c) * subject * 0.035) + jitter * u_params[5] * 0.0008;
   } else if (u_effect == 9) {
     float density = max(u_params[0], 1.0);
     float amount = u_params[1] / 800.0;
@@ -408,7 +435,9 @@ void main() {
     float pulse = 0.55 + 0.45 * sin(u_time * 2.0 + hash(cell) * 6.2831 + luma * 8.0);
     float recursive = 1.0 + u_params[1] * 0.18;
     float geo = u_params[2] > 0.5 ? wire : max(wire, fill * 0.22 * recursive);
-    color = mix(color * 0.55, u_color * (0.35 + luma + subject * 0.4) * pulse, geo * (0.45 + subject * 0.55));
+    vec3 cellTone = sampleSource(effectUv + normalize(local + vec2(0.0001)) * geo * 0.006).rgb;
+    vec3 shapedVideo = mix(cellTone * (0.72 + pulse * 0.35), cellTone * (0.95 + u_color * 0.55), geo);
+    color = mix(color, shapedVideo, geo * (0.65 + subject * 0.35));
   } else if (u_effect == 4) {
     vec2 px = 1.0 / u_resolution;
     float edge = length(sampleSource(effectUv + vec2(px.x, 0.0)).rgb - sampleSource(effectUv - vec2(px.x, 0.0)).rgb);
@@ -431,8 +460,9 @@ void main() {
     float focus = trackedMask(uv, 0.1);
     float objectMask = glyph * max(edgeMask, focus * 0.62);
     float halo = smoothstep(threshold * 0.45, threshold + 0.2, edge) * 0.28;
-    vec3 objectColor = mix(u_color, vec3(1.0, 0.12, 0.08), 0.62);
-    color = mix(color * 0.45, objectColor * (0.72 + glyph * 0.48), clamp(objectMask + halo, 0.0, 1.0));
+    vec3 warpedVideo = sampleSource(effectUv + (local - 0.5) * objectMask * dotSize / u_resolution * 0.9).rgb;
+    vec3 objectTintedVideo = mix(warpedVideo, warpedVideo * (0.78 + u_color * 0.72), clamp(objectMask + halo, 0.0, 1.0));
+    color = mix(color, objectTintedVideo, clamp(objectMask + halo * 0.7, 0.0, 1.0));
   } else if (u_effect == 6) {
     float dotSize = max(u_params[0], 4.0);
     vec2 c = trackedCenter();
@@ -444,7 +474,9 @@ void main() {
     float radius = mix(0.16, 0.5, clamp(luma * 1.45 + subject * 0.2, 0.0, 1.0));
     radius *= 1.0 + u_params[1] * (hash(floor((v_uv + motion) * u_resolution / dotSize)) - 0.5);
     float dot = 1.0 - smoothstep(radius, radius + 0.055, length(cell));
-    color = mix(color * 0.28, u_color, dot * (0.65 + subject * 0.35));
+    vec3 dotVideo = sampleSource(effectUv + cell * dotSize / u_resolution * dot * 0.28).rgb;
+    dotVideo = mix(dotVideo * 0.42, dotVideo * (0.85 + u_color * 0.58), dot);
+    color = mix(color, dotVideo, dot * (0.72 + subject * 0.28));
   } else if (u_effect == 7) {
     float density = mix(18.0, 95.0, clamp(u_params[1] / 600.0, 0.0, 1.0));
     vec2 c = trackedCenter();
@@ -460,8 +492,10 @@ void main() {
     float horizontal = aaBand(abs(local.y - 0.5), 0.012 * max(u_params[3], 0.5)) * step(abs(local.x - 0.5), u_params[2] * 0.012);
     float link = max(vertical, horizontal) * subject;
     float idGlyph = u_params[7] > 0.5 ? objectGlyph(fract(p * 1.7), cell, 3.0) * 0.35 : 0.0;
-    vec3 plexColor = mix(u_color, vec3(1.0, 0.12, 0.08), 0.7);
-    color = mix(color * 0.5, plexColor * (0.65 + h * 0.35), clamp(point + link * 0.72 + idGlyph * subject, 0.0, 1.0));
+    float plexMask = clamp(point + link * 0.72 + idGlyph * subject, 0.0, 1.0);
+    vec3 plexVideo = sampleSource(effectUv + (local - 0.5) * plexMask * 0.018).rgb;
+    plexVideo = mix(plexVideo, plexVideo * (0.78 + u_color * (0.42 + h * 0.28)), plexMask);
+    color = mix(color, plexVideo, plexMask);
   } else if (u_effect == 8) {
     float density = max(u_params[0] * 0.08, 6.0);
     vec2 cell = floor(v_uv * vec2(density, density * 1.6));
@@ -469,7 +503,8 @@ void main() {
     float fall = fract(stream + u_time * max(u_params[1], 0.5) * 0.12);
     float trail = smoothstep(0.0, 0.18, 1.0 - abs(fract(v_uv.y * density * 1.6) - fall));
     float glyph = step(0.66, hash(cell + floor(u_time * 12.0)));
-    color = mix(color * 0.28, u_color * (0.4 + glyph), trail * (0.35 + glyph * 0.65));
+    vec3 matrixVideo = mix(color * 0.35, color * (0.65 + u_color * 0.75), glyph);
+    color = mix(color, matrixVideo, trail * (0.45 + glyph * 0.55));
   } else if (u_effect == 9) {
     float amount = max(u_params[2], 1.0) / 500.0;
     vec3 split;
@@ -502,8 +537,9 @@ void main() {
     float pick = hash(cell);
     vec3 blockColor = pick < 0.25 ? googleA : (pick < 0.5 ? googleB : (pick < 0.75 ? googleC : googleD));
     blockColor = mode > 1.5 ? u_color : (mode > 0.5 ? mix(color, u_color, 0.35) : blockColor);
-    color = mix(color * 0.18, blockColor, rect * (1.0 - avoid * 0.82));
-    color += u_color * smoothstep(0.9, 0.0, abs(avoid - 0.36)) * 0.25;
+    vec3 blockVideo = mode > 1.5 ? color * (0.72 + u_color * 0.6) : (mode > 0.5 ? mix(color, color * (0.75 + u_color * 0.45), 0.55) : color * mix(blockColor, vec3(1.0), 0.45));
+    color = mix(color, blockVideo, rect * (1.0 - avoid * 0.82));
+    color = mix(color, color * (0.92 + u_color * 0.2), smoothstep(0.9, 0.0, abs(avoid - 0.36)) * 0.25);
   } else if (u_effect == 14) {
     float subject = trackedMask(v_uv, 0.16);
     float flowLine = aaBand(abs(fract((v_uv.y + v_uv.x * 0.12 + u_time * 0.08 * u_params[5]) * mix(8.0, 48.0, u_params[2])) - 0.5), 0.045);
@@ -626,19 +662,28 @@ void main() {
   float vig = smoothstep(0.95, 0.18, length(v_uv - 0.5));
   color *= mix(1.0, vig, vignette);
 
+  float sourceTransform = (
+    u_effect == 2 || u_effect == 3 || u_effect == 4 || u_effect == 5 ||
+    u_effect == 6 || u_effect == 7 || u_effect == 8 || u_effect == 9 ||
+    u_effect == 10 || u_effect == 11 || u_effect == 12 || u_effect == 13 ||
+    u_effect == 14 || u_effect == 15 || u_effect == 16 || u_effect == 17 ||
+    u_effect == 18 || u_effect == 19 || u_effect == 20 || u_effect == 21 ||
+    u_effect == 22 || u_effect == 23 || u_effect == 24
+  ) ? 1.0 : 0.0;
+
   vec3 blended = color;
-  if (u_common.z > 0.5 && u_common.z < 1.5) {
+  if (sourceTransform < 0.5 && u_common.z > 0.5 && u_common.z < 1.5) {
     blended = 1.0 - (1.0 - originalColor) * (1.0 - color);
-  } else if (u_common.z > 1.5 && u_common.z < 2.5) {
+  } else if (sourceTransform < 0.5 && u_common.z > 1.5 && u_common.z < 2.5) {
     blended = originalColor + color;
-  } else if (u_common.z > 2.5 && u_common.z < 3.5) {
+  } else if (sourceTransform < 0.5 && u_common.z > 2.5 && u_common.z < 3.5) {
     blended = originalColor * color;
-  } else if (u_common.z > 3.5) {
+  } else if (sourceTransform < 0.5 && u_common.z > 3.5) {
     blended = abs(originalColor - color);
   }
-  float effectAmount = u_effect == 2 ? 1.0 : clamp(u_common.x, 0.0, 1.0);
+  float effectAmount = u_effect == 2 ? 1.0 : (sourceTransform > 0.5 ? max(clamp(u_common.x, 0.0, 1.0), 0.82) : clamp(u_common.x, 0.0, 1.0));
   color = mix(originalColor, blended, effectAmount);
-  float originalMix = u_effect == 2 ? 0.0 : clamp(u_common.y, 0.0, 1.0);
+  float originalMix = u_effect == 2 ? 0.0 : (sourceTransform > 0.5 ? clamp(u_common.y, 0.0, 0.18) : clamp(u_common.y, 0.0, 1.0));
   color = mix(color, originalColor, originalMix);
 
   gl_FragColor = vec4(clamp(color, 0.0, 1.0), base.a);

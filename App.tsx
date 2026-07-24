@@ -20,13 +20,14 @@ const App: React.FC = () => {
     currentTime: 0,
     duration: 0,
     loop: true,
-    muted: true,
+    muted: false,
   });
 
   // ON AIR 전용 상태
   const [isOnAirActive, setIsOnAirActive] = useState(false);
 
   const rendererRef = useRef<CanvasRendererHandle>(null);
+  const onAirRendererRef = useRef<CanvasRendererHandle>(null);
   const syncChannel = useMemo(() => new BroadcastChannel('visual-parameter-sync'), []);
 
   const isOnAirView = new URLSearchParams(window.location.search).get('view') === 'onair';
@@ -83,7 +84,7 @@ const App: React.FC = () => {
     const url = URL.createObjectURL(file);
     setMediaSrc(url);
     setIsVideo(file.type.startsWith('video'));
-    setPlaybackState({ isPlaying: false, currentTime: 0, duration: 0, loop: true, muted: true });
+    setPlaybackState({ isPlaying: false, currentTime: 0, duration: 0, loop: true, muted: false });
   };
 
   const handleExport = () => {
@@ -98,6 +99,14 @@ const App: React.FC = () => {
       'VisualParameterOnAir', 
       'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no,resizable=yes'
     );
+  };
+
+  const handleStartOnAir = () => {
+    setIsOnAirActive(true);
+    window.requestAnimationFrame(() => {
+      onAirRendererRef.current?.setMuted(false);
+      onAirRendererRef.current?.play();
+    });
   };
 
   const handleEffectSelect = (effect: EffectDef) => {
@@ -156,7 +165,7 @@ const App: React.FC = () => {
         {!isOnAirActive && (
           <div 
             className="absolute inset-0 z-[200] bg-zinc-900 flex flex-col items-center justify-center cursor-pointer group"
-            onClick={() => setIsOnAirActive(true)}
+            onClick={handleStartOnAir}
           >
             <div className="w-24 h-24 rounded-full border border-white/20 flex items-center justify-center transition-all group-hover:scale-110 group-hover:border-red-500">
                <div className="w-4 h-4 rounded-full bg-red-500 animate-pulse"></div>
@@ -167,6 +176,7 @@ const App: React.FC = () => {
         )}
         
         <CanvasRenderer 
+          ref={onAirRendererRef}
           mediaSrc={mediaSrc} 
           isVideo={isVideo}
           activeEffect={activeEffect}
@@ -174,6 +184,7 @@ const App: React.FC = () => {
           globalParams={globalParams}
           onUpload={() => {}} 
           isCleanFeed={true}
+          audioEnabled={isOnAirActive}
         />
         
         {isOnAirActive && !mediaSrc && (
@@ -201,6 +212,7 @@ const App: React.FC = () => {
           onUpload={handleUpload}
           onExportStateChange={setIsExporting}
           onPlaybackStateChange={setPlaybackState}
+          audioEnabled={true}
         />
       </main>
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-50 w-full px-6 pointer-events-none">
