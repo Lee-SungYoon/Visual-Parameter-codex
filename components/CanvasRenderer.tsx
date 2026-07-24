@@ -125,8 +125,35 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
     startExport: async () => {
       if (!canvasRef.current || !mediaSrc) return;
       const canvas = canvasRef.current;
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = Math.max(2, Math.floor(window.innerWidth));
+      exportCanvas.height = Math.max(2, Math.floor(window.innerHeight));
+      const exportCtx = exportCanvas.getContext('2d');
+      if (!exportCtx) return;
+      exportCtx.imageSmoothingEnabled = true;
+      exportCtx.imageSmoothingQuality = 'high';
       const chunks: Blob[] = [];
-      const canvasStream = (canvas as HTMLCanvasElement & { captureStream: (frameRate?: number) => MediaStream }).captureStream(60);
+      let exportAnimationFrame = 0;
+      const drawExportFrame = () => {
+        const source = isVideo ? sourceVideoRef.current : sourceImageRef.current;
+        exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+        if (isCleanFeed) {
+          exportCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, exportCanvas.width, exportCanvas.height);
+        } else if (source) {
+          const halfW = exportCanvas.width / 2;
+          drawCoverSource(exportCtx, source, 0, 0, halfW, exportCanvas.height);
+          exportCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, halfW, 0, halfW, exportCanvas.height);
+          exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
+          exportCtx.fillRect(halfW - 1, 0, 2, exportCanvas.height);
+        } else {
+          exportCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, exportCanvas.width, exportCanvas.height);
+        }
+
+        exportAnimationFrame = requestAnimationFrame(drawExportFrame);
+      };
+      drawExportFrame();
+      const canvasStream = (exportCanvas as HTMLCanvasElement & { captureStream: (frameRate?: number) => MediaStream }).captureStream(60);
       const exportStream = new MediaStream(canvasStream.getVideoTracks());
       const sourceVideo = isVideo ? sourceVideoRef.current : null;
       const sourceCaptureStream = sourceVideo && 'captureStream' in sourceVideo
@@ -149,6 +176,14 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
         mimeType, 
         videoBitsPerSecond: 15000000 // 고화질을 위해 15Mbps로 상향
       });
+      const previousVideoState = sourceVideoRef.current
+        ? {
+            currentTime: sourceVideoRef.current.currentTime,
+            loop: sourceVideoRef.current.loop,
+            muted: sourceVideoRef.current.muted,
+            paused: sourceVideoRef.current.paused,
+          }
+        : null;
 
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
       
@@ -166,12 +201,19 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
         setExportProgress(0); 
         setExportEta(0); 
         onExportStateChange?.(false);
+        cancelAnimationFrame(exportAnimationFrame);
         exportStream.getTracks().forEach((track) => track.stop());
         
-        if (sourceVideoRef.current) {
-          sourceVideoRef.current.muted = muted;
-          sourceVideoRef.current.loop = true; // 다시 루프 활성화
-          sourceVideoRef.current.play();
+        if (sourceVideoRef.current && previousVideoState) {
+          sourceVideoRef.current.muted = previousVideoState.muted;
+          sourceVideoRef.current.loop = previousVideoState.loop;
+          sourceVideoRef.current.currentTime = Math.min(
+            previousVideoState.currentTime,
+            sourceVideoRef.current.duration || previousVideoState.currentTime,
+          );
+          if (!previousVideoState.paused) {
+            sourceVideoRef.current.play();
+          }
         }
       };
 
