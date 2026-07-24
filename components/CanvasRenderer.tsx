@@ -77,27 +77,8 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   const [exportEta, setExportEta] = useState(0);
   const [muted, setMutedState] = useState(!audioEnabled);
 
-  const trackingOffsetRef = useRef({ x: 0, y: 0, scale: 1.0 });
   const MIN_PROC_WIDTH = 960;
   const MAX_PROC_WIDTH = 1800;
-  const TRACKED_EFFECTS = new Set([
-    'motion_trail',
-    'rgb_shift',
-    'neon_edge',
-    'pixel_flow',
-    'time_scan',
-    'line',
-    'geometry',
-    'halftone',
-    'plexus',
-    'kinetic_plexus',
-    'landmark_constellation',
-    'tri_mesh',
-    'edge_trace',
-    'particle_drift',
-    'ribbon_trails',
-    'depth_field',
-  ]);
 
   useEffect(() => {
     setMutedState(!audioEnabled);
@@ -309,7 +290,12 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   useEffect(() => {
     let active = true;
     async function initObjectDetector() {
-      if (!TRACKED_EFFECTS.has(activeEffect.id) && globalParams.target === 'entire') {
+      if (globalParams.autoTracking) {
+        objectDetectorRef.current?.close();
+        objectDetectorRef.current = null;
+        return;
+      }
+      if (globalParams.target === 'entire') {
         objectDetectorRef.current?.close();
         objectDetectorRef.current = null;
         detectionBoxesRef.current = [];
@@ -341,7 +327,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
       objectDetectorRef.current?.close();
       objectDetectorRef.current = null;
     };
-  }, [activeEffect.id, globalParams.target, isVideo]);
+  }, [activeEffect.id, globalParams.target, globalParams.autoTracking, isVideo]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -432,28 +418,47 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
                 if (result?.categoryMask) {
                    const maskData = result.categoryMask.getAsUint8Array();
                    const mw = result.categoryMask.width; const mh = result.categoryMask.height;
-                   let sumX = 0; let sumY = 0; let count = 0;
+                   let minX = mw;
+                   let minY = mh;
+                   let maxX = 0;
+                   let maxY = 0;
+                   let count = 0;
                    for (let i = 0; i < maskData.length; i++) {
-                      if (maskData[i] > 0) { sumX += i % mw; sumY += Math.floor(i / mw); count++; }
+                      if (maskData[i] > 0) {
+                        const x = i % mw;
+                        const y = Math.floor(i / mw);
+                        minX = Math.min(minX, x);
+                        minY = Math.min(minY, y);
+                        maxX = Math.max(maxX, x);
+                        maxY = Math.max(maxY, y);
+                        count++;
+                      }
                    }
                    if (count > 100) {
-                       const centerX = (sumX / count) / mw; const centerY = (sumY / count) / mh;
-                       const targetX = (0.5 - centerX) * procW * 0.5; const targetY = (0.5 - centerY) * procH * 0.5;
-                       const areaFraction = count / (mw * mh);
-                       const targetScale = 1.1 + Math.max(0, (0.25 - areaFraction) * 1.5);
-                       trackingOffsetRef.current.x += (targetX - trackingOffsetRef.current.x) * 0.08;
-                       trackingOffsetRef.current.y += (targetY - trackingOffsetRef.current.y) * 0.08;
-                       trackingOffsetRef.current.scale += (targetScale - trackingOffsetRef.current.scale) * 0.05;
+                      const paddingX = (maxX - minX) * 0.12;
+                      const paddingY = (maxY - minY) * 0.12;
+                      const nextBox = {
+                        x: Math.max(0, (minX - paddingX) / mw),
+                        y: Math.max(0, (minY - paddingY) / mh),
+                        width: Math.min(1, (maxX - minX + paddingX * 2) / mw),
+                        height: Math.min(1, (maxY - minY + paddingY * 2) / mh),
+                      };
+                      const previous = detectionBoxesRef.current[0];
+                      const smooth = previous ? 0.32 : 1;
+                      detectionBoxesRef.current = previous
+                        ? [{
+                            x: previous.x + (nextBox.x - previous.x) * smooth,
+                            y: previous.y + (nextBox.y - previous.y) * smooth,
+                            width: previous.width + (nextBox.width - previous.width) * smooth,
+                            height: previous.height + (nextBox.height - previous.height) * smooth,
+                          }]
+                        : [nextBox];
                    }
                    result.categoryMask.close();
                 }
               } catch (e) {}
-          } else if (!globalParams.autoTracking) {
-              trackingOffsetRef.current.x *= 0.9;
-              trackingOffsetRef.current.y *= 0.9;
-              trackingOffsetRef.current.scale += (1.0 - trackingOffsetRef.current.scale) * 0.1;
           }
-          if ((TRACKED_EFFECTS.has(activeEffect.id) || globalParams.target !== 'entire') && objectDetectorRef.current && (!isVideo || frameCountRef.current % 8 === 0)) {
+          if (!globalParams.autoTracking && globalParams.target !== 'entire' && objectDetectorRef.current && (!isVideo || frameCountRef.current % 8 === 0)) {
             try {
               const result = isVideo
                 ? objectDetectorRef.current.detectForVideo(source as HTMLVideoElement, Date.now())
@@ -482,7 +487,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
                 };
               });
             } catch (e) {}
-          } else if (!TRACKED_EFFECTS.has(activeEffect.id) && globalParams.target === 'entire') {
+          } else if (!globalParams.autoTracking && globalParams.target === 'entire') {
             detectionBoxesRef.current = [];
           }
           const colorModeTarget = {
