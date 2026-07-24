@@ -5,6 +5,13 @@ export type EffectId =
   | 'neon_edge'
   | 'pixel_flow'
   | 'time_scan'
+  | 'kinetic_plexus'
+  | 'landmark_constellation'
+  | 'tri_mesh'
+  | 'edge_trace'
+  | 'particle_drift'
+  | 'ribbon_trails'
+  | 'depth_field'
   | 'motion_particles'
   | 'depth_cloud'
   | 'vortex'
@@ -24,6 +31,9 @@ export type BlendMode = 'normal' | 'screen' | 'add' | 'multiply' | 'difference';
 export type PreviewMode = 'original' | 'effect' | 'split' | 'before_after';
 export type EffectStatus = 'Complete' | 'Lite' | 'Mock' | 'Planned';
 export type GpuLoad = 'Low' | 'Medium' | 'High' | 'Experimental';
+export type EffectCategory = 'video_effect' | 'kinetic_graphic' | 'legacy';
+export type GraphicStylePreset = 'minimal_white' | 'tech_green' | 'digital_blue' | 'luxury_gold' | 'monochrome' | 'custom';
+export type AnimationMode = 'static' | 'float' | 'pulse' | 'follow_motion' | 'expand' | 'scan';
 
 export interface GlobalParams {
   hue: number;
@@ -58,12 +68,15 @@ export interface GlobalParams {
   motionReactivity: number;
   speed: number;
   previewMode: PreviewMode;
+  stylePreset: GraphicStylePreset;
+  animationMode: AnimationMode;
 }
 
 export interface EffectDef {
   id: EffectId;
   name: string;
   description: string;
+  category?: EffectCategory;
   status?: EffectStatus;
   gpuLoad?: GpuLoad;
   reference?: {
@@ -89,4 +102,32 @@ export interface PlaybackState {
   duration: number;
   loop: boolean;
   muted: boolean;
+}
+
+export interface NormalizedPoint {
+  x: number;
+  y: number;
+  z?: number;
+  confidence?: number;
+}
+
+export interface DetectedObject {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  confidence?: number;
+  label?: string;
+}
+
+export interface VisionFrameData {
+  timestamp: number;
+  frameWidth: number;
+  frameHeight: number;
+  faceLandmarks?: NormalizedPoint[];
+  handLandmarks?: NormalizedPoint[][];
+  poseLandmarks?: NormalizedPoint[];
+  objectBoxes?: DetectedObject[];
+  contours?: NormalizedPoint[][];
+  motionVectors?: NormalizedPoint[];
 }

@@ -73,6 +73,20 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   const trackingOffsetRef = useRef({ x: 0, y: 0, scale: 1.0 });
   const MIN_PROC_WIDTH = 960;
   const MAX_PROC_WIDTH = 1800;
+  const TRACKED_EFFECTS = new Set([
+    'motion_trail',
+    'rgb_shift',
+    'neon_edge',
+    'pixel_flow',
+    'time_scan',
+    'kinetic_plexus',
+    'landmark_constellation',
+    'tri_mesh',
+    'edge_trace',
+    'particle_drift',
+    'ribbon_trails',
+    'depth_field',
+  ]);
 
   useEffect(() => {
     if (isVideo && mediaLoaded && sourceVideoRef.current) {
@@ -260,7 +274,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   useEffect(() => {
     let active = true;
     async function initObjectDetector() {
-      if (activeEffect.id !== 'kinetic_avoid') {
+      if (!TRACKED_EFFECTS.has(activeEffect.id) && globalParams.target === 'entire') {
         objectDetectorRef.current?.close();
         objectDetectorRef.current = null;
         detectionBoxesRef.current = [];
@@ -292,7 +306,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
       objectDetectorRef.current?.close();
       objectDetectorRef.current = null;
     };
-  }, [activeEffect.id, isVideo]);
+  }, [activeEffect.id, globalParams.target, isVideo]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -401,14 +415,14 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
               trackingOffsetRef.current.y *= 0.9;
               trackingOffsetRef.current.scale += (1.0 - trackingOffsetRef.current.scale) * 0.1;
           }
-          if (activeEffect.id === 'kinetic_avoid' && objectDetectorRef.current && (!isVideo || frameCountRef.current % 10 === 0)) {
+          if ((TRACKED_EFFECTS.has(activeEffect.id) || globalParams.target !== 'entire') && objectDetectorRef.current && (!isVideo || frameCountRef.current % 8 === 0)) {
             try {
               const result = isVideo
                 ? objectDetectorRef.current.detectForVideo(source as HTMLVideoElement, Date.now())
                 : objectDetectorRef.current.detect(source as HTMLImageElement);
               const sourceW = isVideo ? (source as HTMLVideoElement).videoWidth : (source as HTMLImageElement).naturalWidth;
               const sourceH = isVideo ? (source as HTMLVideoElement).videoHeight : (source as HTMLImageElement).naturalHeight;
-              detectionBoxesRef.current = result.detections
+              const nextBoxes = result.detections
                 .map((d) => d.boundingBox)
                 .filter((box): box is NonNullable<typeof box> => Boolean(box))
                 .map((box) => ({
@@ -417,8 +431,20 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
                   width: Math.max(0, Math.min(1, box.width / sourceW)),
                   height: Math.max(0, Math.min(1, box.height / sourceH)),
                 }));
+              const previous = detectionBoxesRef.current;
+              detectionBoxesRef.current = nextBoxes.map((box, index) => {
+                const prev = previous[index];
+                if (!prev) return box;
+                const smooth = 0.28;
+                return {
+                  x: prev.x + (box.x - prev.x) * smooth,
+                  y: prev.y + (box.y - prev.y) * smooth,
+                  width: prev.width + (box.width - prev.width) * smooth,
+                  height: prev.height + (box.height - prev.height) * smooth,
+                };
+              });
             } catch (e) {}
-          } else if (activeEffect.id !== 'kinetic_avoid') {
+          } else if (!TRACKED_EFFECTS.has(activeEffect.id)) {
             detectionBoxesRef.current = [];
           }
           const renderEffect = globalParams.effectEnabled && globalParams.previewMode !== 'original';

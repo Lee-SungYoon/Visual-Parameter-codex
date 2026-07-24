@@ -1,5 +1,5 @@
 import React from 'react';
-import { BlendMode, EffectDef, GlobalParams, ParamConfig, PlaybackState, PreviewMode } from '../types';
+import { AnimationMode, BlendMode, EffectDef, GlobalParams, GraphicStylePreset, ParamConfig, PlaybackState, PreviewMode } from '../types';
 import {
   CheckSquare,
   ExternalLink,
@@ -45,6 +45,22 @@ const TARGETS = [
 ] as const;
 
 const BLEND_MODES: BlendMode[] = ['normal', 'screen', 'add', 'multiply', 'difference'];
+const STYLE_PRESETS: { label: string; value: GraphicStylePreset; color: string; blendMode: BlendMode; originalMix: number }[] = [
+  { label: 'Minimal White', value: 'minimal_white', color: '#ffffff', blendMode: 'screen', originalMix: 0.18 },
+  { label: 'Tech Green', value: 'tech_green', color: '#d9ff00', blendMode: 'screen', originalMix: 0.12 },
+  { label: 'Digital Blue', value: 'digital_blue', color: '#66d9ff', blendMode: 'screen', originalMix: 0.16 },
+  { label: 'Luxury Gold', value: 'luxury_gold', color: '#d5b56e', blendMode: 'screen', originalMix: 0.18 },
+  { label: 'Monochrome', value: 'monochrome', color: '#d8d8d8', blendMode: 'screen', originalMix: 0.2 },
+  { label: 'Custom', value: 'custom', color: '#40bfbf', blendMode: 'screen', originalMix: 0.18 },
+];
+const ANIMATION_MODES: { label: string; value: AnimationMode }[] = [
+  { label: 'Static', value: 'static' },
+  { label: 'Float', value: 'float' },
+  { label: 'Pulse', value: 'pulse' },
+  { label: 'Follow Motion', value: 'follow_motion' },
+  { label: 'Expand', value: 'expand' },
+  { label: 'Scan', value: 'scan' },
+];
 const PREVIEW_MODES: { label: string; value: PreviewMode }[] = [
   { label: 'Original', value: 'original' },
   { label: 'Effect', value: 'effect' },
@@ -104,6 +120,52 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       speed: 1,
     });
   };
+
+  const applyStylePreset = (value: GraphicStylePreset) => {
+    const preset = STYLE_PRESETS.find((item) => item.value === value) || STYLE_PRESETS[0];
+    setGlobalParams({
+      ...globalParams,
+      stylePreset: value,
+      effectColor: value === 'custom' ? globalParams.effectColor : preset.color,
+      blendMode: preset.blendMode,
+      originalMix: preset.originalMix,
+    });
+  };
+
+  const renderEffectGroup = (title: string, effects: EffectDef[]) => (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/35">{title}</span>
+        <span className="text-[8px] font-black uppercase text-white/25">{effects.length} modes</span>
+      </div>
+      <div className={`grid gap-2 ${effects.length <= 5 ? 'grid-cols-5' : 'grid-cols-7'}`}>
+        {effects.map((effect) => {
+          const isActive = activeEffect.id === effect.id;
+          return (
+            <button
+              key={effect.id}
+              onClick={() => onSelectEffect(effect)}
+              className={`group flex min-h-[88px] flex-col justify-between rounded-lg border p-3 text-left transition ${isActive ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'}`}
+            >
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-[10px] font-black uppercase leading-tight">{effect.name}</span>
+                  <span className={`rounded-full border px-2 py-0.5 text-[7px] font-black uppercase ${isActive ? 'border-zinc-950/20 bg-zinc-950/10 text-zinc-700' : statusTone(effect.status)}`}>
+                    {effect.status || 'Planned'}
+                  </span>
+                </div>
+                <p className={`mt-2 line-clamp-2 text-[8px] font-bold leading-snug ${isActive ? 'text-zinc-600' : 'text-white/45'}`}>{effect.description}</p>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span className={`text-[7px] font-black uppercase ${isActive ? 'text-zinc-600' : 'text-white/35'}`}>GPU {effect.gpuLoad || 'Medium'}</span>
+                <span className={`h-1.5 w-9 rounded-full ${isActive ? 'bg-zinc-950' : 'bg-white/25 group-hover:bg-white/50'}`} />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   const renderParamControl = ([key, config]: [string, ParamConfig]) => {
     const value = effectParams[key];
@@ -185,33 +247,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
   return (
     <div className="flex w-full flex-col gap-2 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="rounded-[28px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
-        <div className="grid grid-cols-7 gap-2">
-          {allEffects.map((effect) => {
-            const isActive = activeEffect.id === effect.id;
-            return (
-              <button
-                key={effect.id}
-                onClick={() => onSelectEffect(effect)}
-                className={`group flex min-h-[92px] flex-col justify-between rounded-lg border p-3 text-left transition ${isActive ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'}`}
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-[10px] font-black uppercase leading-tight">{effect.name}</span>
-                    <span className={`rounded-full border px-2 py-0.5 text-[7px] font-black uppercase ${isActive ? 'border-zinc-950/20 bg-zinc-950/10 text-zinc-700' : statusTone(effect.status)}`}>
-                      {effect.status || 'Planned'}
-                    </span>
-                  </div>
-                  <p className={`mt-2 line-clamp-2 text-[8px] font-bold leading-snug ${isActive ? 'text-zinc-600' : 'text-white/45'}`}>{effect.description}</p>
-                </div>
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <span className={`text-[7px] font-black uppercase ${isActive ? 'text-zinc-600' : 'text-white/35'}`}>GPU {effect.gpuLoad || 'Medium'}</span>
-                  <span className={`h-1.5 w-9 rounded-full ${isActive ? 'bg-zinc-950' : 'bg-white/25 group-hover:bg-white/50'}`} />
-                </div>
-              </button>
-            );
-          })}
-        </div>
+      <div className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+        {renderEffectGroup('Video Effects', allEffects.filter((effect) => effect.category === 'video_effect'))}
+        {renderEffectGroup('Kinetic Graphics', allEffects.filter((effect) => effect.category === 'kinetic_graphic'))}
       </div>
 
       <div className="rounded-[28px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
@@ -237,6 +275,30 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             <select value={globalParams.target} onChange={(e) => updateGlobal('target', e.target.value as GlobalParams['target'])} className="h-8 w-full rounded-full border border-white/10 bg-black/35 px-3 text-[9px] font-black uppercase text-white outline-none">
               {TARGETS.map((target) => <option key={target.value} value={target.value}>{target.label}</option>)}
             </select>
+          </div>
+
+          <div className="min-w-[172px]">
+            <div className="mb-2 text-[8px] font-black uppercase text-white/45">Style Preset</div>
+            <select value={globalParams.stylePreset} onChange={(e) => applyStylePreset(e.target.value as GraphicStylePreset)} className="h-8 w-full rounded-full border border-white/10 bg-black/35 px-3 text-[9px] font-black uppercase text-white outline-none">
+              {STYLE_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}
+            </select>
+          </div>
+
+          <div className="min-w-[172px]">
+            <div className="mb-2 text-[8px] font-black uppercase text-white/45">Animation Mode</div>
+            <select value={globalParams.animationMode} onChange={(e) => updateGlobal('animationMode', e.target.value as AnimationMode)} className="h-8 w-full rounded-full border border-white/10 bg-black/35 px-3 text-[9px] font-black uppercase text-white outline-none">
+              {ANIMATION_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
+            </select>
+          </div>
+
+          <div className="min-w-[86px]">
+            <div className="mb-2 text-[8px] font-black uppercase text-white/45">Color</div>
+            <input
+              type="color"
+              value={globalParams.effectColor}
+              onChange={(e) => setGlobalParams({ ...globalParams, stylePreset: 'custom', effectColor: e.target.value })}
+              className="h-8 w-full cursor-pointer rounded-full border border-white/10 bg-black/35 p-1"
+            />
           </div>
 
           <div className="min-w-[150px]">

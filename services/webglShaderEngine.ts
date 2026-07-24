@@ -30,6 +30,13 @@ const EFFECT_INDEX: Record<EffectId, number> = {
   neon_edge: 13,
   pixel_flow: 14,
   time_scan: 15,
+  kinetic_plexus: 18,
+  landmark_constellation: 19,
+  tri_mesh: 20,
+  edge_trace: 21,
+  particle_drift: 22,
+  ribbon_trails: 23,
+  depth_field: 24,
   motion_particles: 16,
   depth_cloud: 17,
   vortex: 1,
@@ -62,7 +69,7 @@ uniform vec2 u_resolution;
 uniform vec2 u_sourceResolution;
 uniform float u_time;
 uniform int u_effect;
-uniform float u_params[8];
+uniform float u_params[10];
 uniform vec4 u_global;
 uniform vec4 u_common;
 uniform vec4 u_flags;
@@ -157,11 +164,53 @@ vec2 repelFromBoxes(vec2 p, float radius, float strength) {
   return offset;
 }
 
+float trackedMask(vec2 p, float feather) {
+  if (u_boxCount == 0) {
+    vec2 q = p - vec2(0.5);
+    q.x *= u_resolution.x / max(u_resolution.y, 1.0);
+    return 1.0 - smoothstep(0.28, 0.28 + feather, length(q));
+  }
+  float mask = 0.0;
+  for (int i = 0; i < 8; i++) {
+    if (i >= u_boxCount) break;
+    vec4 box = u_boxes[i];
+    float d = boxDistance(p, box);
+    mask = max(mask, 1.0 - smoothstep(0.0, max(feather, 0.001), d));
+  }
+  return clamp(mask, 0.0, 1.0);
+}
+
+vec2 trackedCenter() {
+  if (u_boxCount == 0) return vec2(0.5);
+  vec2 center = vec2(0.0);
+  float weight = 0.0;
+  for (int i = 0; i < 8; i++) {
+    if (i >= u_boxCount) break;
+    vec4 box = u_boxes[i];
+    float area = max(box.z * box.w, 0.001);
+    center += (box.xy + box.zw * 0.5) * area;
+    weight += area;
+  }
+  return center / max(weight, 0.001);
+}
+
+float gridPoint(vec2 p, float density, float radius, float jitter, float timeScale) {
+  vec2 id = floor(p * density);
+  vec2 local = fract(p * density) - 0.5;
+  vec2 offset = vec2(hash(id), hash(id + 17.13)) - 0.5;
+  offset += vec2(sin(u_time * timeScale + hash(id) * 6.2831), cos(u_time * timeScale + hash(id + 4.7) * 6.2831)) * jitter;
+  return aaBand(length(local - offset * 0.55), radius);
+}
+
 void main() {
   vec2 uv = coverUv(v_uv);
   vec2 effectUv = uv;
   vec2 centered = uv - 0.5;
   float aspect = u_resolution.x / max(u_resolution.y, 1.0);
+  float animMode = u_flags.w;
+  float animPulse = animMode > 1.5 && animMode < 2.5 ? 0.65 + 0.35 * sin(u_time * 3.4) : 1.0;
+  float animScan = animMode > 4.5 ? smoothstep(0.0, 0.22, fract(v_uv.y + u_time * 0.35)) : 1.0;
+  float animExpand = animMode > 3.5 && animMode < 4.5 ? smoothstep(0.0, 0.45, length(v_uv - trackedCenter()) + sin(u_time) * 0.08) : 1.0;
   centered.x *= aspect;
 
   if (u_effect == 1) {
@@ -199,19 +248,36 @@ void main() {
     float r = length(centered);
     effectUv += centered * r * distortion * 0.08;
   } else if (u_effect == 14) {
+    float direction = u_params[0];
     float threshold = u_params[1];
     float stretch = u_params[6] * 0.16;
-    float wave = sin((uv.y + u_time * u_params[5] * 0.08) * 80.0) * u_params[4] * 0.01;
+    float wave = sin((uv.y + uv.x * 0.3 + u_time * u_params[5] * 0.08) * 80.0) * u_params[4] * 0.01;
     float sourceLuma = dot(sampleSource(uv).rgb, vec3(0.299, 0.587, 0.114));
-    effectUv.x += step(threshold, sourceLuma) * stretch + wave;
+    vec2 radialDir = normalize(centered + vec2(0.0001));
+    if (direction < 0.5) {
+      effectUv.x += step(threshold, sourceLuma) * stretch + wave;
+    } else if (direction < 1.5) {
+      effectUv.y += step(threshold, sourceLuma) * stretch + wave;
+    } else {
+      effectUv += radialDir * (step(threshold, sourceLuma) * stretch + wave);
+    }
   } else if (u_effect == 15) {
-    float wave = sin((uv.y + u_time * u_params[3]) * 20.0 * max(u_params[4], 1.0)) * u_params[5] * 0.04;
-    effectUv.x += wave * smoothstep(0.0, max(u_params[2], 0.01), abs(fract(uv.y + u_params[7]) - 0.5));
+    float direction = u_params[1];
+    float axis = direction < 0.5 ? uv.y : (direction < 1.5 ? uv.x : length(centered));
+    float wave = sin((axis + u_time * u_params[3]) * 20.0 * max(u_params[4], 1.0)) * u_params[5] * 0.05;
+    float gate = smoothstep(0.0, max(u_params[2], 0.01), abs(fract(axis + u_params[7]) - 0.5));
+    effectUv += direction < 0.5 ? vec2(wave * gate, 0.0) : (direction < 1.5 ? vec2(0.0, wave * gate) : normalize(centered + vec2(0.0001)) * wave * gate);
   } else if (u_effect == 17) {
     float sourceLuma = dot(sampleSource(uv).rgb, vec3(0.299, 0.587, 0.114));
     float depth = sourceLuma * u_params[0];
     vec2 orbit = vec2(cos(u_time * u_params[6]), sin(u_time * u_params[6])) * depth * u_params[3] * 0.08;
     effectUv += orbit + (hash(floor(uv * 90.0)) - 0.5) * u_params[5] * 0.01;
+  } else if (u_effect == 24) {
+    float sourceLuma = dot(sampleSource(uv).rgb, vec3(0.299, 0.587, 0.114));
+    vec2 center = trackedCenter();
+    vec2 parallax = (uv - center) * sourceLuma * u_params[3] * 0.22;
+    parallax += vec2(sin(u_time * u_params[4]), cos(u_time * u_params[4] * 0.7)) * sourceLuma * 0.025;
+    effectUv += parallax;
   }
 
   vec4 base = sampleSource(effectUv);
@@ -230,7 +296,8 @@ void main() {
     vec3 echoC = sampleSource(effectUv + vec2(-px.x, px.y)).rgb;
     vec3 feedback = (echoA + echoB + echoC) / 3.0;
     float bright = smoothstep(0.35, 1.0, dot(feedback, vec3(0.299, 0.587, 0.114)));
-    color = mix(color, feedback * (1.0 - decay * 0.45) + u_color * bright * glow, trail);
+    float focus = trackedMask(uv, 0.16);
+    color = mix(color, feedback * (1.0 - decay * 0.45) + u_color * bright * glow, trail * (0.35 + focus * 0.85));
   } else if (u_effect == 12) {
     float amount = u_params[0];
     float direction = u_params[1];
@@ -247,7 +314,9 @@ void main() {
     vec2 px = 1.0 / u_resolution;
     float edge = length(sampleSource(effectUv + vec2(px.x, 0.0)).rgb - sampleSource(effectUv - vec2(px.x, 0.0)).rgb);
     edge += length(sampleSource(effectUv + vec2(0.0, px.y)).rgb - sampleSource(effectUv - vec2(0.0, px.y)).rgb);
-    float edgeMask = u_params[6] > 0.5 ? smoothstep(0.08, 0.22, edge) : 1.0;
+    float focus = trackedMask(uv, 0.16);
+    float edgeMask = u_params[6] > 0.5 ? smoothstep(0.06, 0.18, edge) : 1.0;
+    edgeMask = max(edgeMask, focus * 0.72);
     color = mix(color, shifted, edgeMask);
   } else if (u_effect == 13) {
     float thickness = max(u_params[0], 0.5);
@@ -271,7 +340,9 @@ void main() {
     float stroke = smoothstep(threshold, threshold + 0.18, edge);
     float aura = smoothstep(threshold * 0.35, threshold + 0.35 + growth, edge) * glow;
     vec3 neon = u_color * (stroke + aura * 0.55 + trail * 0.25);
-    color = mix(color * (1.0 - dim), neon, clamp(stroke + aura, 0.0, 1.0));
+    float focus = trackedMask(uv, 0.12);
+    neon += u_color * focus * glow * 0.35;
+    color = mix(color * (1.0 - dim * (0.35 + focus)), neon, clamp(stroke + aura + focus * 0.28, 0.0, 1.0));
   } else if (u_effect == 3) {
     float gridSize = max(u_params[0], 8.0);
     vec2 grid = fract(v_uv * u_resolution / gridSize);
@@ -341,6 +412,17 @@ void main() {
     blockColor = mode > 1.5 ? u_color : (mode > 0.5 ? mix(color, u_color, 0.35) : blockColor);
     color = mix(color * 0.18, blockColor, rect * (1.0 - avoid * 0.82));
     color += u_color * smoothstep(0.9, 0.0, abs(avoid - 0.36)) * 0.25;
+  } else if (u_effect == 14) {
+    float subject = trackedMask(v_uv, 0.16);
+    float blocks = aaBand(abs(fract((v_uv.y + v_uv.x * 0.12 + u_time * 0.08 * u_params[5]) * max(u_params[3], 2.0)) - 0.5), 0.06);
+    float gate = smoothstep(u_params[1], 1.0, luma);
+    color = mix(color, color + u_color * blocks * gate * subject * (0.6 + u_params[6]), 0.75);
+  } else if (u_effect == 15) {
+    float direction = u_params[1];
+    float axis = direction < 0.5 ? v_uv.y : (direction < 1.5 ? v_uv.x : length(centered));
+    float scan = aaBand(abs(fract(axis * max(u_params[4], 1.0) + u_time * u_params[3]) - 0.5), max(u_params[2], 0.02));
+    float subject = trackedMask(v_uv, 0.18);
+    color = mix(color, color + u_color * scan * subject * (0.8 + u_params[0]), 0.8);
   } else if (u_effect == 16) {
     float count = max(u_params[0] * 0.018, 6.0);
     float size = u_params[1] * 0.01;
@@ -359,6 +441,83 @@ void main() {
     float depth = luma * u_params[0];
     vec3 cloud = mix(u_color * 0.35, color + u_color * 0.4, depth);
     color = mix(color * u_params[7], cloud, point);
+  } else if (u_effect == 18) {
+    float density = mix(18.0, 82.0, clamp(u_params[0] / 260.0, 0.0, 1.0));
+    float subject = trackedMask(v_uv, 0.12);
+    float point = gridPoint(v_uv + sin(u_time * 0.35) * 0.006, density, u_params[1] * 0.018, u_params[5] * 2.0, 1.2);
+    vec2 grid = fract(v_uv * density) - 0.5;
+    float vertical = aaBand(abs(grid.x), 0.018) * step(abs(grid.y), u_params[2] * 1.8);
+    float horizontal = aaBand(abs(grid.y), 0.018) * step(abs(grid.x), u_params[2] * 1.8);
+    float line = max(vertical, horizontal) * u_params[4] * subject;
+    float pulse = 0.75 + 0.25 * sin(u_time * 2.4 + hash(floor(v_uv * density)) * 6.2831);
+    vec3 graphic = u_color * (point * (1.2 + u_params[8] * 2.0) + line) * pulse * animPulse * animScan * animExpand;
+    color = originalColor + graphic * subject;
+  } else if (u_effect == 19) {
+    vec2 center = trackedCenter();
+    vec2 p = v_uv - center;
+    p.x *= aspect;
+    float rings = 0.0;
+    float spokes = 0.0;
+    for (int i = 0; i < 5; i++) {
+      float a = float(i) * 1.2566 + sin(u_time * 0.7) * 0.18;
+      vec2 dir = vec2(cos(a), sin(a));
+      float along = dot(p, dir);
+      float crossv = abs(p.x * dir.y - p.y * dir.x);
+      spokes = max(spokes, aaBand(crossv, 0.006 * max(u_params[2], 0.5)) * step(abs(along), 0.28));
+      rings = max(rings, aaBand(abs(length(p) - (0.06 + float(i) * 0.045)), 0.005 * u_params[1]));
+    }
+    float subject = trackedMask(v_uv, 0.18);
+    float point = gridPoint(v_uv, 34.0, u_params[1] * 0.014, 0.015, 1.5);
+    float pulse = 1.0 + sin(u_time * 3.0) * u_params[5];
+    color = originalColor + u_color * subject * pulse * animScan * (point + spokes * u_params[3] + rings * 0.45);
+  } else if (u_effect == 20) {
+    float density = mix(12.0, 50.0, clamp(u_params[0] / 160.0, 0.0, 1.0));
+    vec2 p = v_uv * density + vec2(sin(u_time * 0.33), cos(u_time * 0.27)) * u_params[4] * 4.0;
+    vec2 tri = fract(vec2(p.x + p.y * 0.5, p.y * 0.866));
+    float line = min(min(tri.x, tri.y), abs(tri.x + tri.y - 1.0));
+    float wire = aaBand(line, 0.024 * max(u_params[2], 0.5));
+    float fill = smoothstep(0.0, 0.5, line) * u_params[3];
+    float subject = trackedMask(v_uv, 0.14);
+    vec3 meshColor = u_params[5] > 0.5 ? mix(u_color, color, 0.55) : u_color;
+    color = originalColor + meshColor * subject * animPulse * (wire * (1.0 + u_params[6]) + fill);
+  } else if (u_effect == 21) {
+    vec2 px = 1.0 / u_resolution * max(u_params[1], 0.5);
+    float edge = length(sampleSource(uv + vec2(px.x, 0.0)).rgb - sampleSource(uv - vec2(px.x, 0.0)).rgb);
+    edge += length(sampleSource(uv + vec2(0.0, px.y)).rgb - sampleSource(uv - vec2(0.0, px.y)).rgb);
+    float contour = smoothstep(u_params[0], u_params[0] + 0.14, edge);
+    vec2 c = trackedCenter();
+    float scan = fract((v_uv.y + v_uv.x * 0.25) * 2.0 + u_time * u_params[2]);
+    float trace = smoothstep(0.0, u_params[3], scan) * (1.0 - smoothstep(u_params[3], min(1.0, u_params[3] + 0.18), scan));
+    float subject = max(trackedMask(v_uv, 0.1), 1.0 - smoothstep(0.24, 0.5, length(v_uv - c)));
+    color = originalColor + u_color * subject * contour * (0.8 + trace * 1.8 + u_params[4] * 1.5) * animExpand;
+  } else if (u_effect == 22) {
+    float density = mix(22.0, 95.0, clamp(u_params[0] / 1200.0, 0.0, 1.0));
+    vec2 flow = vec2(sin(u_time * u_params[2]), cos(u_time * u_params[2] * 0.8)) * u_params[4] * 0.08;
+    float subject = trackedMask(v_uv - flow, 0.16);
+    float point = gridPoint(v_uv + flow, density, u_params[1] * 0.014, u_params[4], 1.1);
+    float life = smoothstep(0.0, max(u_params[8], 0.01), fract(hash(floor(v_uv * density)) + u_time / max(u_params[7], 0.1)));
+    life *= 1.0 - smoothstep(max(0.0, 1.0 - u_params[9]), 1.0, fract(hash(floor(v_uv * density)) + u_time / max(u_params[7], 0.1)));
+    color = originalColor + u_color * point * subject * life * (0.6 + u_params[6]) * animPulse;
+  } else if (u_effect == 23) {
+    vec2 c = trackedCenter();
+    vec2 p = v_uv - c;
+    p.x *= aspect;
+    float ribbon = 0.0;
+    for (int i = 0; i < 5; i++) {
+      float t = float(i) / 5.0;
+      float wave = sin((p.x + t) * 10.0 + u_time * (1.2 + u_params[6] * 2.0)) * 0.04;
+      float y = p.y + wave + (t - 0.5) * 0.14;
+      ribbon = max(ribbon, aaBand(abs(y), u_params[2] * 0.006) * smoothstep(0.38, 0.02, abs(p.x)));
+    }
+    float subject = trackedMask(v_uv, 0.2);
+    color = originalColor + u_color * ribbon * (subject + 0.35) * (1.0 + u_params[7] * 2.0) * animScan;
+  } else if (u_effect == 24) {
+    float density = mix(30.0, 140.0, clamp(u_params[0] / 12000.0, 0.0, 1.0));
+    float depth = smoothstep(u_params[5], u_params[6], luma) * u_params[2];
+    vec2 cell = fract((v_uv + (depth - 0.5) * u_params[3] * 0.12) * density) - 0.5;
+    float point = aaBand(length(cell), u_params[1] * 0.01);
+    float subject = trackedMask(v_uv, 0.2);
+    color = mix(originalColor, originalColor + u_color * point * subject * (0.8 + depth) * animPulse, 1.0 - u_params[7]);
   }
 
   float exposure = u_global.x;
@@ -601,6 +760,31 @@ const paramsToUniform = (effectId: EffectId, params: any) => {
   if (effectId === 'depth_cloud') {
     return [params.depthStrength || 0.55, params.pointSize || 2.6, params.pointDensity || 0.5, params.zScale || 0.6, params.explosion || 0.18, params.noise || 0.25, params.cameraOrbit || 0.35, params.originalMix || 0.35];
   }
+  if (effectId === 'kinetic_plexus') {
+    return [params.pointCount || 120, params.pointSize || 3, params.connectionDistance || 0.12, params.maxConnections || 4, params.lineOpacity || 0.58, params.jitter || 0.02, params.trackingSmoothness || 0.82, params.motionReaction || 0.72, params.glow || 0.26, 0];
+  }
+  if (effectId === 'landmark_constellation') {
+    const type = params.landmarkType === 'hands' ? 1 : params.landmarkType === 'pose' ? 2 : params.landmarkType === 'mixed' ? 3 : 0;
+    return [type, params.pointSize || 3, params.lineWidth || 1, params.connectionOpacity || 0.72, params.trackingSmoothness || 0.86, params.pulseAmount || 0.36, params.motionReaction || 0.7, params.trailLength || 0.22, 0, 0];
+  }
+  if (effectId === 'tri_mesh') {
+    const meshMode = params.meshMode === 'filled' ? 1 : params.meshMode === 'hybrid' ? 2 : 0;
+    const colorSource = params.colorSource === 'source' ? 1 : 0;
+    return [params.pointDensity || 75, meshMode, params.lineWidth || 1, params.fillOpacity || 0.14, params.distortion || 0.03, colorSource, params.edgeGlow || 0.22, params.trackingSmoothness || 0.82, 0, 0];
+  }
+  if (effectId === 'edge_trace') {
+    return [params.threshold || 0.34, params.lineThickness || 2, params.traceSpeed || 0.8, params.visibleLength || 0.42, params.glow || 0.42, params.trail || 0.28, params.contourSmoothing || 0.76, params.internalEdges ? 1 : 0, 0, 0];
+  }
+  if (effectId === 'particle_drift') {
+    return [params.particleCount || 420, params.particleSize || 2.5, params.driftSpeed || 0.35, params.noiseScale || 0.8, params.noiseStrength || 0.42, params.stickiness || 0.74, params.motionReaction || 0.58, params.lifetime || 5, params.fadeIn || 0.4, params.fadeOut || 0.8];
+  }
+  if (effectId === 'ribbon_trails') {
+    const source = params.trackingSource === 'hands' ? 1 : params.trackingSource === 'object' ? 2 : params.trackingSource === 'center' ? 3 : 0;
+    return [source, params.trailLength || 45, params.lineWidth || 3, params.smoothing || 0.82, params.motionWidthReaction || 0.7, params.fadeOut || 0.86, params.ribbonTwist || 0.18, params.glow || 0.28, 0, 0];
+  }
+  if (effectId === 'depth_field') {
+    return [params.pointCount || 8000, params.pointSize || 1.5, params.depthStrength || 0.56, params.parallax || 0.16, params.cameraDrift || 0.12, params.nearClip || 0.05, params.farClip || 0.95, params.originalMix || 0.78, params.depthSmoothing || 0.7, 0];
+  }
   return [0, 0, 0, 0, 0, 0, 0, 0];
 };
 
@@ -665,7 +849,17 @@ export const renderShaderFrame = (
     globalParams.bw ? 1 : 0,
     globalParams.invert || globalParams.xray ? 1 : 0,
     globalParams.thermal ? 1 : 0,
-    globalParams.duotone ? 1 : 0
+    globalParams.animationMode === 'float'
+      ? 1
+      : globalParams.animationMode === 'pulse'
+        ? 2
+        : globalParams.animationMode === 'follow_motion'
+          ? 3
+          : globalParams.animationMode === 'expand'
+            ? 4
+            : globalParams.animationMode === 'scan'
+              ? 5
+              : 0
   );
   gl.uniform3fv(renderer.colorLocation, new Float32Array(hexToRgb(globalParams.effectColor)));
   const boxes = new Float32Array(8 * 4);
