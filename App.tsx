@@ -11,6 +11,7 @@ const App: React.FC = () => {
   const [mediaSrc, setMediaSrc] = useState<string | null>(null);
   const [isVideo, setIsVideo] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isNavigatorVisible, setIsNavigatorVisible] = useState(true);
   
   const [globalParams, setGlobalParams] = useState<GlobalParams>(INITIAL_GLOBAL_PARAMS);
   const [activeEffect, setActiveEffect] = useState<EffectDef>(EFFECTS[0]);
@@ -28,6 +29,7 @@ const App: React.FC = () => {
 
   const rendererRef = useRef<CanvasRendererHandle>(null);
   const onAirRendererRef = useRef<CanvasRendererHandle>(null);
+  const navigatorHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncChannel = useMemo(() => new BroadcastChannel('visual-parameter-sync'), []);
 
   const isOnAirView = new URLSearchParams(window.location.search).get('view') === 'onair';
@@ -79,6 +81,24 @@ const App: React.FC = () => {
 
     return () => { syncChannel.onmessage = null; };
   }, [isOnAirView, syncChannel, mediaSrc, isVideo, globalParams, activeEffect, effectParams]);
+
+  useEffect(() => {
+    if (isOnAirView) return;
+
+    const showNavigator = () => {
+      setIsNavigatorVisible(true);
+      if (navigatorHideTimerRef.current) clearTimeout(navigatorHideTimerRef.current);
+      navigatorHideTimerRef.current = setTimeout(() => setIsNavigatorVisible(false), 5000);
+    };
+
+    showNavigator();
+    window.addEventListener('mousemove', showNavigator, { passive: true });
+
+    return () => {
+      window.removeEventListener('mousemove', showNavigator);
+      if (navigatorHideTimerRef.current) clearTimeout(navigatorHideTimerRef.current);
+    };
+  }, [isOnAirView]);
 
   const handleUpload = (file: File) => {
     const url = URL.createObjectURL(file);
@@ -223,8 +243,8 @@ const App: React.FC = () => {
           audioEnabled={true}
         />
       </main>
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-50 w-full px-6 pointer-events-none">
-         <div className="pointer-events-auto">
+      <div className={`absolute bottom-3 left-1/2 z-50 w-full px-6 transition-all duration-500 ease-out ${isNavigatorVisible ? '-translate-x-1/2 translate-y-0 opacity-100 pointer-events-none' : '-translate-x-1/2 translate-y-8 opacity-0 pointer-events-none'}`}>
+         <div className={isNavigatorVisible ? 'pointer-events-auto' : 'pointer-events-none'}>
             <ControlPanel 
               globalParams={globalParams}
               setGlobalParams={setGlobalParams}

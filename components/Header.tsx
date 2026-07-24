@@ -18,7 +18,7 @@ const Header: React.FC<HeaderProps> = ({ onExport, onAir, isExporting }) => {
       <div className="flex justify-center pointer-events-none">
         <h1 
           className="text-[36px] font-black tracking-normal leading-none"
-          style={{ color: '#BCBCBC' }}
+          style={{ color: '#000000' }}
         >
           Visual Parameter
         </h1>
