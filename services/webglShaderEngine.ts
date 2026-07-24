@@ -339,10 +339,14 @@ void main() {
     }
   } else if (u_effect == 15) {
     float direction = u_params[1];
-    float axis = direction < 0.5 ? uv.y : (direction < 1.5 ? uv.x : length(centered));
-    float wave = sin((axis + u_time * u_params[3]) * 20.0 * max(u_params[4], 1.0)) * u_params[5] * 0.05;
-    float gate = smoothstep(0.0, max(u_params[2], 0.01), abs(fract(axis + u_params[7]) - 0.5));
-    effectUv += direction < 0.5 ? vec2(wave * gate, 0.0) : (direction < 1.5 ? vec2(0.0, wave * gate) : normalize(centered + vec2(0.0001)) * wave * gate);
+    float sourceLuma = dot(sampleSource(uv).rgb, vec3(0.299, 0.587, 0.114));
+    float noiseA = hash(floor((uv + u_time * 0.035) * (70.0 + u_params[4] * 35.0)));
+    float noiseB = hash(floor((uv.yx - u_time * 0.028) * (42.0 + u_params[4] * 22.0)));
+    vec2 noiseVec = vec2(noiseA - 0.5, noiseB - 0.5);
+    vec2 scanDir = direction < 0.5 ? vec2(1.0, 0.0) : (direction < 1.5 ? vec2(0.0, 1.0) : normalize(centered + vec2(0.0001)));
+    float displacement = (noiseA * 0.65 + sourceLuma * 0.35) * u_params[0] * (0.018 + u_params[5] * 0.045);
+    float softGate = smoothstep(0.0, 0.65, trackedMask(uv, 0.22) + abs(noiseA - noiseB));
+    effectUv += (scanDir * displacement + noiseVec * displacement * 0.85) * softGate;
   } else if (u_effect == 17) {
     float sourceLuma = dot(sampleSource(uv).rgb, vec3(0.299, 0.587, 0.114));
     float depth = sourceLuma * u_params[0];
@@ -397,23 +401,11 @@ void main() {
     float movingEdge = smoothstep(0.045, 0.2, edge);
     float edgeMask = u_params[6] > 0.5 ? movingEdge : 1.0;
     edgeMask = max(edgeMask, focus * 0.78);
-    vec3 rgbOverlay = shifted + vec3(1.0, 0.0, 0.0) * movingEdge * 0.32 + vec3(0.0, 0.95, 1.0) * focus * 0.22;
-    color = mix(color, rgbOverlay, clamp(edgeMask * (0.86 + u_params[5] * 0.24), 0.0, 1.0));
-
-    float density = mix(28.0, 82.0, clamp(u_params[5], 0.0, 1.0));
-    vec2 edgeFlow = normalize(centered + vec2(0.0001)) * focus * 0.08 + vec2(sin(u_time * 0.55), cos(u_time * 0.47)) * 0.018;
-    vec2 markerUv = (v_uv + edgeFlow) * density;
-    vec2 markerCell = floor(markerUv);
-    vec2 markerLocal = fract(markerUv);
-    float markerSeed = hash(markerCell);
-    float markerGate = step(0.38, markerSeed) * max(movingEdge, focus * 0.82);
-    float arrow = objectGlyph(markerLocal, markerCell, 0.0);
-    float numberGlyph = objectGlyph(fract(markerUv * 1.55 + vec2(0.18, 0.08)), markerCell + 19.0, 3.0);
-    vec2 crossLocal = markerLocal - 0.5;
-    float cross = (aaBand(abs(crossLocal.x), 0.012) * step(abs(crossLocal.y), 0.34) + aaBand(abs(crossLocal.y), 0.012) * step(abs(crossLocal.x), 0.34)) * step(0.82, markerSeed);
-    float connector = aaBand(abs(crossLocal.y - crossLocal.x * 0.45), 0.008) * step(abs(crossLocal.x), 0.42) * step(0.76, hash(markerCell + 7.3));
-    vec3 markerColor = vec3(0.0, 0.92, 0.95);
-    color = mix(color, markerColor, clamp((arrow * 0.85 + numberGlyph * 0.45 + cross * 0.35 + connector * 0.28) * markerGate, 0.0, 0.92));
+    vec3 separated = shifted + vec3(shifted.r - color.r, shifted.g - color.g, shifted.b - color.b) * (0.65 + movingEdge * 0.55);
+    separated.r = max(separated.r, sampleSource(effectUv + offset * 1.7).r * movingEdge);
+    separated.g = max(separated.g, sampleSource(effectUv - offset * 0.65).g * focus);
+    separated.b = max(separated.b, sampleSource(effectUv - offset * 1.7).b * movingEdge);
+    color = mix(color, separated, clamp(edgeMask * (0.88 + u_params[5] * 0.28), 0.0, 1.0));
   } else if (u_effect == 13) {
     float thickness = max(u_params[0], 0.5);
     float threshold = u_params[1];
@@ -505,8 +497,9 @@ void main() {
     radius = clamp(radius, 0.09, 0.38);
     float dot = 1.0 - smoothstep(radius, radius + 0.035, length(cell));
     vec3 dotVideo = sampleSource(effectUv + cell * dotSize / u_resolution * dot * 0.28).rgb;
-    dotVideo = mix(dotVideo * 0.48, dotVideo * (0.88 + u_color * (0.45 + motionEdge * 0.35)), dot);
-    color = mix(color, dotVideo, dot * (0.65 + subject * 0.2 + motionEdge * 0.25));
+    vec3 invertedDotVideo = 1.0 - dotVideo;
+    invertedDotVideo = mix(invertedDotVideo, invertedDotVideo * (0.82 + u_color * 0.38), motionEdge * 0.35);
+    color = mix(color, invertedDotVideo, dot * (0.82 + subject * 0.12 + motionEdge * 0.18));
   } else if (u_effect == 7) {
     float density = mix(18.0, 95.0, clamp(u_params[1] / 600.0, 0.0, 1.0));
     vec2 c = trackedCenter();

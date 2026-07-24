@@ -147,7 +147,7 @@ export const EFFECTS: EffectDef[] = [
   {
     id: 'time_scan',
     name: 'Time Scan',
-    description: 'Shape-anchored slit-scan wave and scanline trails',
+    description: 'Noise displacement distortion inspired by SVG filters',
     category: 'video_effect',
     status: 'Complete',
     gpuLoad: 'High',
