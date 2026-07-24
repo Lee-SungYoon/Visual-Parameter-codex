@@ -258,7 +258,7 @@ const App: React.FC = () => {
         }));
       };
       mix();
-      interval = setInterval(mix, 3500);
+      interval = setInterval(mix, 3000);
     }
     return () => clearInterval(interval);
   }, [globalParams.mixMode, isOnAirView]);
@@ -277,7 +277,7 @@ const App: React.FC = () => {
         });
       }, 100);
       pickNewTarget();
-      timer = setInterval(pickNewTarget, 3000);
+      timer = setInterval(pickNewTarget, 2000);
     }
     return () => { clearInterval(timer); clearInterval(lerpTimer); };
   }, [globalParams.colorMix, isOnAirView]);
