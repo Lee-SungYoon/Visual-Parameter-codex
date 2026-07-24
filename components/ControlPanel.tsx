@@ -223,6 +223,34 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     );
   };
 
+  const renderOriginalColorButton = () => {
+    const active = !globalParams.bw
+      && !globalParams.xray
+      && !globalParams.thermal
+      && !globalParams.invert
+      && !globalParams.dramaticWarm
+      && !globalParams.dramaticCool;
+
+    return (
+      <button
+        onClick={() => setGlobalParams({
+          ...globalParams,
+          bw: false,
+          xray: false,
+          thermal: false,
+          invert: false,
+          dramaticWarm: false,
+          dramaticCool: false,
+        })}
+        className={`h-9 rounded-full border px-5 text-[9px] font-black transition ${
+          active ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/70 hover:border-white/35 hover:bg-white/15'
+        }`}
+      >
+        Original
+      </button>
+    );
+  };
+
   const renderGlobalMenu = () => (
     <div className="flex w-full max-w-[calc(100vw-25.6px)] items-center justify-between gap-x-4 overflow-hidden whitespace-nowrap">
       <div className="flex min-w-0 flex-1 items-center gap-x-4">
@@ -240,6 +268,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         </button>
         <div className="hidden h-9 w-px bg-white/10 lg:block" />
         <div className="flex items-center gap-2">
+          {renderOriginalColorButton()}
           {MODE_BUTTONS.map(renderModeButton)}
           {PRESET_BUTTONS.map(renderPresetButton)}
         </div>
