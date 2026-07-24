@@ -44,12 +44,16 @@ const App: React.FC = () => {
   const activeEffectRef = useRef(activeEffect);
   const effectParamsRef = useRef(effectParams);
   const globalParamsRef = useRef(globalParams);
-  const syncChannel = useMemo(() => new BroadcastChannel('visual-parameter-sync'), []);
+  const syncChannel = useMemo(
+    () => typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('visual-parameter-sync'),
+    [],
+  );
 
   const isOnAirView = new URLSearchParams(window.location.search).get('view') === 'onair';
 
   // 1. 메인 창 -> 온에어 창 상태 전송
   useEffect(() => {
+    if (!syncChannel) return;
     if (!isOnAirView) {
       const state = {
         type: 'STATE_UPDATE',
@@ -65,6 +69,7 @@ const App: React.FC = () => {
 
   // 2. 메시지 수신 및 초기 동기화 요청
   useEffect(() => {
+    if (!syncChannel) return;
     const handleMessage = (e: MessageEvent) => {
       const data = e.data;
       if (isOnAirView) {
@@ -148,7 +153,13 @@ const App: React.FC = () => {
     if (mediaObjectUrlRef.current) {
       URL.revokeObjectURL(mediaObjectUrlRef.current);
     }
-    syncChannel.close();
+  }, []);
+
+  useEffect(() => {
+    if (!syncChannel) return;
+    const closeChannel = () => syncChannel.close();
+    window.addEventListener('pagehide', closeChannel, { once: true });
+    return () => window.removeEventListener('pagehide', closeChannel);
   }, [syncChannel]);
 
   const handleExport = () => {
