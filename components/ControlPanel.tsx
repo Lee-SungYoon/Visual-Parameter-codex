@@ -127,14 +127,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const renderEffectMenu = () => (
-    <div className="flex max-w-[calc(100vw-25.6px)] items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
+    <div className="flex w-full max-w-[calc(100vw-25.6px)] items-center gap-2 overflow-hidden whitespace-nowrap">
       {allEffects.map((effect) => {
         const isActive = activeEffect.id === effect.id;
         return (
           <button
             key={effect.id}
             onClick={() => onSelectEffect(effect)}
-            className={`h-10 shrink-0 rounded-[18px] border px-3 text-[10px] font-black uppercase transition ${isActive ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/55 hover:border-white/35 hover:bg-white/15 hover:text-white'}`}
+            className={`h-10 min-w-0 flex-1 rounded-[18px] border px-2 text-[9px] font-black uppercase transition sm:text-[10px] ${isActive ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/55 hover:border-white/35 hover:bg-white/15 hover:text-white'}`}
           >
             {effect.name}
           </button>
@@ -152,7 +152,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   ) => {
     const value = globalParams[key];
     return (
-      <div className="min-w-[132px]">
+      <div className="min-w-0 flex-1 basis-[clamp(96px,9vw,132px)]">
         <div className="mb-2 flex items-center justify-between text-[8px] font-black uppercase text-white/45">
           <span>{label}</span>
           <span className="tabular-nums text-white/80">{Math.round(value)}</span>
@@ -186,15 +186,15 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const renderGlobalMenu = () => (
-    <div className="flex max-w-[calc(100vw-25.6px)] items-center justify-between gap-x-7 overflow-x-auto whitespace-nowrap pb-1">
-      <div className="flex shrink-0 items-center gap-x-7">
+    <div className="flex w-full max-w-[calc(100vw-25.6px)] items-center justify-between gap-x-4 overflow-hidden whitespace-nowrap">
+      <div className="flex min-w-0 flex-1 items-center gap-x-4">
         <SlidersHorizontal size={16} className="text-white/35" />
         {renderColorSlider('hue', 'HUE', 0, 360, 'bg-[linear-gradient(90deg,#ff003c,#ffee00,#00ff73,#00d5ff,#332cff,#ff00c8,#ff003c)]')}
         {renderColorSlider('saturation', 'SAT', 0, 100)}
         {renderColorSlider('lightness', 'LUM', 0, 100)}
         <button
           onClick={() => updateGlobal('colorMix', !globalParams.colorMix)}
-          className={`h-10 min-w-[150px] rounded-full border px-7 text-[10px] font-black uppercase transition ${
+          className={`h-10 min-w-[132px] rounded-full border px-5 text-[10px] font-black uppercase transition ${
             globalParams.colorMix ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'
           }`}
         >
@@ -206,10 +206,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-6">
+      <div className="flex shrink-0 items-center gap-4">
         <button
           onClick={() => updateGlobal('autoTracking', !globalParams.autoTracking)}
-          className={`flex h-10 items-center gap-3 rounded-full border px-7 text-[10px] font-black uppercase transition ${
+          className={`flex h-10 items-center gap-2 rounded-full border px-5 text-[10px] font-black uppercase transition ${
             globalParams.autoTracking ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'
           }`}
         >
@@ -222,7 +222,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             <button
               key={target.value}
               onClick={() => updateGlobal('target', target.value)}
-              className={`h-8 min-w-[84px] rounded-full px-4 text-[8px] font-black uppercase transition ${
+              className={`h-8 min-w-[68px] rounded-full px-3 text-[8px] font-black uppercase transition ${
                 globalParams.target === target.value ? 'bg-white text-zinc-950' : 'text-white/45 hover:bg-white/10 hover:text-white'
               }`}
             >
@@ -233,7 +233,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
         <button
           onClick={() => updateGlobal('mixMode', !globalParams.mixMode)}
-          className={`flex h-10 items-center gap-3 rounded-full border px-7 text-[10px] font-black uppercase transition ${
+          className={`flex h-10 items-center gap-2 rounded-full border px-5 text-[10px] font-black uppercase transition ${
             globalParams.mixMode ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'
           }`}
         >
@@ -251,9 +251,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     if (config.type === 'slider') {
       const numericValue = typeof value === 'number' ? value : Number(value) || 0;
       return (
-        <div key={key} className="w-[168px] shrink-0">
+        <div key={key} className="min-w-0 flex-1 basis-[clamp(128px,13vw,216px)]">
           <div className="flex items-center justify-between gap-3 text-[8px] font-black text-white/45">
-            <span className="truncate">{label}</span>
+            <span>{label}</span>
             <span className="tabular-nums text-white/75">{formatParamValue(numericValue, config)}</span>
           </div>
           <input
@@ -272,7 +272,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     if (config.type === 'select') {
       const isIconSelect = config.options?.every((option) => ['arrow', 'dot', 'square', 'number', 'alphabet', 'triangle', 'hexagon', 'rhombus'].includes(option));
       return (
-        <div key={key} className={isIconSelect ? 'flex min-w-fit shrink-0 items-end' : 'w-[190px] shrink-0'}>
+        <div key={key} className={isIconSelect ? 'flex min-w-0 flex-1 basis-[clamp(176px,14vw,232px)] items-end' : 'min-w-0 flex-1 basis-[clamp(184px,15vw,248px)]'}>
           {!isIconSelect && <div className="mb-2 text-[8px] font-black uppercase text-white/45">{label}</div>}
           <div className="flex rounded-[18px] border border-white/10 bg-black/35 p-1">
             {config.options?.map((option) => (
@@ -280,7 +280,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                 key={option}
                 title={`${label}: ${option}`}
                 onClick={() => updateEffect(key, option)}
-                className={`flex h-8 items-center justify-center rounded-full text-[8px] font-black uppercase transition ${isIconSelect ? 'w-8' : 'flex-1 px-2'} ${value === option ? 'bg-white text-zinc-900' : 'text-white/45 hover:bg-white/10 hover:text-white'}`}
+                className={`flex h-8 min-w-0 items-center justify-center rounded-full text-[8px] font-black uppercase transition ${isIconSelect ? 'flex-1 px-2' : 'flex-1 px-2'} ${value === option ? 'bg-white text-zinc-900' : 'text-white/45 hover:bg-white/10 hover:text-white'}`}
               >
                 {isIconSelect ? renderOptionIcon(option) : option}
               </button>
@@ -292,7 +292,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
     if (config.type === 'color') {
       return (
-        <div key={key} className="min-w-[132px]">
+        <div key={key} className="min-w-0 flex-1 basis-[clamp(128px,12vw,180px)]">
           <div className="mb-2 text-[8px] font-black uppercase text-white/45">{label}</div>
           <input
             type="color"
@@ -308,7 +308,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       <button
         key={key}
         onClick={() => updateEffect(key, !value)}
-        className={`flex h-8 items-center gap-2 rounded-full border px-4 text-[9px] font-black uppercase transition ${value ? 'border-white bg-white text-zinc-900' : 'border-white/10 bg-white/10 text-white/55 hover:bg-white/20 hover:text-white'}`}
+        className={`flex h-9 min-w-0 flex-1 basis-[clamp(132px,12vw,168px)] items-center justify-center gap-2 rounded-full border px-4 text-[9px] font-black uppercase transition ${value ? 'border-white bg-white text-zinc-900' : 'border-white/10 bg-white/10 text-white/55 hover:bg-white/20 hover:text-white'}`}
       >
         {value ? <CheckSquare size={14} /> : <Square size={14} />}
         {label}
@@ -318,13 +318,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
   return (
     <div className="flex w-full flex-col gap-2 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="rounded-[18px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
-        {renderGlobalMenu()}
-      </div>
-
-      <div className="max-w-[calc(100vw-25.6px)] overflow-x-auto rounded-[18px] border border-white/10 bg-zinc-950/55 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
-        <div className="flex min-w-max items-center justify-between gap-6">
-          <div className="flex shrink-0 items-center gap-4">
+      <div className="h-[76px] max-w-[calc(100vw-25.6px)] overflow-hidden rounded-[18px] border border-white/10 bg-zinc-950/55 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+        <div className="flex h-full w-full items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
             {(Object.entries(activeEffect.paramConfig) as [string, ParamConfig][]).map(renderParamControl)}
           </div>
 
@@ -350,9 +346,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             <button onClick={() => onStepFrame(1)} disabled={!isVideo} className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-30">
               <SkipForward size={14} />
             </button>
-            <div className="flex min-w-[180px] items-center gap-2">
+            <div className="flex min-w-[154px] items-center gap-2">
               <span className="w-9 text-right text-[9px] font-black text-white/45">{formatTime(playbackState.currentTime)}</span>
-              <input type="range" min="0" max={playbackState.duration || 0} step="0.01" value={Math.min(playbackState.currentTime, playbackState.duration || 0)} onChange={(e) => onSeek(parseFloat(e.target.value))} disabled={!isVideo || !playbackState.duration} className="h-1 w-24 appearance-none rounded-full bg-white/15 accent-white disabled:opacity-30" />
+              <input type="range" min="0" max={playbackState.duration || 0} step="0.01" value={Math.min(playbackState.currentTime, playbackState.duration || 0)} onChange={(e) => onSeek(parseFloat(e.target.value))} disabled={!isVideo || !playbackState.duration} className="h-1 w-16 appearance-none rounded-full bg-white/15 accent-white disabled:opacity-30" />
               <span className="w-9 text-[9px] font-black text-white/45">{formatTime(playbackState.duration)}</span>
             </div>
             <button onClick={onToggleLoop} disabled={!isVideo} className={`h-8 rounded-full border px-3 text-[8px] font-black uppercase transition disabled:opacity-30 ${playbackState.loop ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/45 hover:bg-white/20 hover:text-white'}`}>
@@ -370,6 +366,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
       <div className="rounded-[18px] border border-white/10 bg-zinc-950/55 p-4 shadow-2xl shadow-black/40 backdrop-blur-2xl">
         {renderEffectMenu()}
+      </div>
+
+      <div className="rounded-[18px] border border-white/10 bg-zinc-950/75 p-4 shadow-2xl shadow-black/50 backdrop-blur-2xl">
+        {renderGlobalMenu()}
       </div>
     </div>
   );
