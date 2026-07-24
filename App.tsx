@@ -7,7 +7,7 @@ import { EFFECTS, INITIAL_GLOBAL_PARAMS } from './constants';
 import { GlobalParams, EffectDef, ParamConfig, PlaybackState } from './types';
 import { randomFloat, randomInt, hslToHex } from './services/utils';
 
-const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 600 * 1024 * 1024;
 const SUPPORTED_MEDIA_TYPES = new Set([
   'image/jpeg',
   'image/png',
@@ -135,7 +135,7 @@ const App: React.FC = () => {
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      window.alert('업로드 파일은 최대 500MB까지 지원합니다.');
+      window.alert('업로드 파일은 최대 600MB까지 지원합니다.');
       return;
     }
     if (mediaObjectUrlRef.current) {
