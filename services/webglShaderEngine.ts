@@ -103,6 +103,19 @@ float aaRect(vec2 p, vec2 halfSize) {
   return 1.0 - smoothstep(-w, w, signedDistance);
 }
 
+float sdBox(vec2 p, vec2 halfSize) {
+  vec2 d = abs(p) - halfSize;
+  float outside = length(max(d, 0.0));
+  float inside = min(max(d.x, d.y), 0.0);
+  return outside + inside;
+}
+
+float sdBoxAA(vec2 p, vec2 halfSize) {
+  float d = sdBox(p, halfSize);
+  float w = max(fwidth(d), 0.0015);
+  return 1.0 - smoothstep(0.0, w, d);
+}
+
 vec2 coverUv(vec2 uv) {
   float canvasAspect = u_resolution.x / max(u_resolution.y, 1.0);
   float sourceAspect = u_sourceResolution.x / max(u_sourceResolution.y, 1.0);

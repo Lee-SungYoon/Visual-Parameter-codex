@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
 import { GlobalParams, EffectDef, PlaybackState } from '../types';
 import { createShaderRenderer, DetectionBox, disposeShaderRenderer, renderShaderFrame } from '../services/webglShaderEngine';
+import { renderFrame } from '../services/renderEngine';
 import { ImageSegmenter, FilesetResolver, ObjectDetector } from '@mediapipe/tasks-vision';
 
 interface CanvasRendererProps {
@@ -47,6 +48,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   const segmenterRef = useRef<ImageSegmenter | null>(null);
   const objectDetectorRef = useRef<ObjectDetector | null>(null);
   const shaderRendererRef = useRef<ReturnType<typeof createShaderRenderer>>(null);
+  const shaderUnavailableRef = useRef(false);
   const requestRef = useRef<number | undefined>(undefined);
   const startTimeRef = useRef<number>(Date.now());
   const lastMaskRef = useRef<ImageData | null>(null);
@@ -377,13 +379,20 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
       if (internalCanvas.width !== procW || internalCanvas.height !== procH) {
         disposeShaderRenderer(shaderRendererRef.current);
         shaderRendererRef.current = null;
+        shaderUnavailableRef.current = false;
         internalCanvas.width = procW;
         internalCanvas.height = procH;
       }
-      if (!shaderRendererRef.current) {
-        shaderRendererRef.current = createShaderRenderer(internalCanvas);
+      if (!shaderRendererRef.current && !shaderUnavailableRef.current) {
+        try {
+          shaderRendererRef.current = createShaderRenderer(internalCanvas);
+        } catch (error) {
+          console.warn('WebGL shader renderer unavailable, using Canvas renderer.', error);
+          shaderUnavailableRef.current = true;
+          shaderRendererRef.current = null;
+        }
       }
-      if (displayCtx && source && shaderRendererRef.current) {
+      if (displayCtx && source) {
           displayCtx.imageSmoothingEnabled = true;
           displayCtx.imageSmoothingQuality = 'high';
           const elapsed = (Date.now() - startTimeRef.current) / 1000;
@@ -451,8 +460,15 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
             detectionBoxesRef.current = [];
           }
           const renderEffect = globalParams.effectEnabled && globalParams.previewMode !== 'original';
-          if (renderEffect) {
+          if (renderEffect && shaderRendererRef.current) {
             renderShaderFrame(shaderRendererRef.current, source, activeEffect.id, effectParams, globalParams, elapsed, detectionBoxesRef.current);
+          } else if (renderEffect) {
+            const fallbackCtx = internalCanvas.getContext('2d');
+            if (fallbackCtx) {
+              fallbackCtx.imageSmoothingEnabled = true;
+              fallbackCtx.imageSmoothingQuality = 'high';
+              renderFrame(fallbackCtx, source, activeEffect.id, effectParams, globalParams, elapsed);
+            }
           }
           displayCtx.clearRect(0, 0, canvasSize.w, canvasSize.h);
           displayCtx.save();
