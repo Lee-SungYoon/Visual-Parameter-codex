@@ -202,6 +202,40 @@ float gridPoint(vec2 p, float density, float radius, float jitter, float timeSca
   return aaBand(length(local - offset * 0.55), radius);
 }
 
+float objectGlyph(vec2 local, vec2 cellId, float shapeType) {
+  vec2 p = local - 0.5;
+  if (shapeType < 0.5) {
+    vec2 q = p;
+    q.x += 0.08;
+    float shaft = sdBox(q - vec2(0.08, -0.08), vec2(0.055, 0.34));
+    float head = max(abs(q.x + q.y * 0.72) - 0.13, q.y - 0.16);
+    float cursor = min(shaft, head);
+    return 1.0 - smoothstep(0.0, max(fwidth(cursor), 0.002), cursor);
+  }
+  if (shapeType < 1.5) {
+    float d = length(p);
+    return 1.0 - smoothstep(0.18, 0.18 + max(fwidth(d), 0.002), d);
+  }
+  if (shapeType < 2.5) {
+    return sdBoxAA(p, vec2(0.2));
+  }
+  if (shapeType < 3.5) {
+    float h = hash(cellId);
+    float barA = sdBoxAA(p - vec2(0.0, -0.17), vec2(0.16, 0.035));
+    float barB = sdBoxAA(p - vec2(0.0, 0.17), vec2(0.16, 0.035));
+    float left = sdBoxAA(p - vec2(-0.13, 0.0), vec2(0.035, 0.17));
+    float right = sdBoxAA(p - vec2(0.13, 0.0), vec2(0.035, 0.17));
+    float mid = sdBoxAA(p, vec2(0.14, 0.03));
+    return max(max(barA, barB), max(mix(left, right, step(0.5, h)), mid * step(0.32, h)));
+  }
+  float stem = sdBoxAA(p - vec2(-0.12, 0.0), vec2(0.035, 0.24));
+  float cross = sdBoxAA(p - vec2(0.04, 0.14), vec2(0.16, 0.035));
+  float diagD = abs((p.y + 0.17) - (p.x + 0.12) * 1.35);
+  float diag = 1.0 - smoothstep(0.0, 0.025 + fwidth(diagD), diagD);
+  diag *= smoothstep(-0.18, -0.08, p.x) * (1.0 - smoothstep(0.16, 0.26, p.x));
+  return max(max(stem, cross), diag);
+}
+
 void main() {
   vec2 uv = coverUv(v_uv);
   vec2 effectUv = uv;
@@ -354,9 +388,23 @@ void main() {
     vec2 px = 1.0 / u_resolution;
     float edge = length(sampleSource(effectUv + vec2(px.x, 0.0)).rgb - sampleSource(effectUv - vec2(px.x, 0.0)).rgb);
     edge += length(sampleSource(effectUv + vec2(0.0, px.y)).rgb - sampleSource(effectUv - vec2(0.0, px.y)).rgb);
+    edge += length(sampleSource(effectUv + px).rgb - sampleSource(effectUv - px).rgb) * 0.5;
+    edge *= 0.65;
+    float shapeType = u_params[0];
     float threshold = u_params[1] / 255.0;
-    float stroke = smoothstep(threshold, threshold + 0.2, edge);
-    color = mix(color * 0.38, u_color, stroke);
+    float dotSize = max(u_params[2], 1.0);
+    float randomAmount = clamp(u_params[3], 0.0, 1.0);
+    float edgeMask = smoothstep(threshold, threshold + 0.12, edge);
+    vec2 gridScale = u_resolution / dotSize;
+    vec2 cellId = floor(v_uv * gridScale);
+    vec2 local = fract(v_uv * gridScale);
+    float jitter = (hash(cellId + floor(u_time * 8.0)) - 0.5) * randomAmount * 0.32;
+    local += vec2(jitter, jitter * 0.55);
+    float glyph = objectGlyph(local, cellId, shapeType);
+    float focus = trackedMask(uv, 0.1);
+    float objectMask = glyph * max(edgeMask, focus * 0.62);
+    float halo = smoothstep(threshold * 0.45, threshold + 0.2, edge) * 0.28;
+    color = mix(color * 0.45, u_color * (0.72 + glyph * 0.48), clamp(objectMask + halo, 0.0, 1.0));
   } else if (u_effect == 6) {
     float dotSize = max(u_params[0], 2.0);
     vec2 cell = fract(v_uv * u_resolution / dotSize) - 0.5;
@@ -595,9 +643,10 @@ const hexToRgb = (hex: string) => {
 export const createShaderRenderer = (canvas: HTMLCanvasElement): ShaderRenderer | null => {
   const gl = canvas.getContext('webgl', {
     alpha: false,
-    antialias: false,
-    preserveDrawingBuffer: true,
-  });
+    antialias: true,
+    desynchronized: true,
+    preserveDrawingBuffer: false,
+  } as WebGLContextAttributes);
   if (!gl) return null;
   gl.getExtension('OES_standard_derivatives');
 
@@ -678,7 +727,16 @@ const paramsToUniform = (effectId: EffectId, params: any) => {
     return [params.gridSize || 25, params.recursive || 2, params.wireframe ? 1 : 0, params.displacement || 15, 0, 0, 0, 0];
   }
   if (effectId === 'line') {
-    return [0, params.threshold || 62.5, params.dotSize || 7.75, params.dotRandom || 0.5, 0, 0, 0, 0];
+    const shapeType = params.shapeType === 'dot'
+      ? 1
+      : params.shapeType === 'square'
+        ? 2
+        : params.shapeType === 'number'
+          ? 3
+          : params.shapeType === 'alphabet'
+            ? 4
+            : 0;
+    return [shapeType, params.threshold || 62.5, params.dotSize || 7.75, params.dotRandom || 0.5, 0, 0, 0, 0];
   }
   if (effectId === 'pixel') {
     return [params.pixelSize || 33, params.sizeVariance || 0.5, params.posterize || 6, 0, 0, 0, 0, 0];

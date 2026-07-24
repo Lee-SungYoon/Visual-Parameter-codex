@@ -503,12 +503,16 @@ const drawLine = (ctx: CanvasRenderingContext2D, width: number, height: number, 
 
     ctx.fillStyle = style;
     const r = params.dotRandom || 0;
-    const step = 4; 
     const threshold = params.threshold;
     const cSize = params.dotSize || 2.5;
+    const step = Math.max(4, Math.round(cSize * 0.65));
     const shape = params.shapeType || 'arrow';
     const alphabets = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const slowTime = time * 0.8; 
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
 
     for (let y = 0; y < height; y += step) {
         for (let x = 0; x < width; x += step) {
@@ -527,7 +531,9 @@ const drawLine = (ctx: CanvasRenderingContext2D, width: number, height: number, 
                         ctx.arc(x, y, finalSize / 2, 0, Math.PI * 2);
                         ctx.fill();
                     } else if (shape === 'square') {
-                        ctx.fillRect(x - finalSize/2, y - finalSize/2, finalSize, finalSize);
+                        ctx.beginPath();
+                        ctx.rect(x - finalSize/2, y - finalSize/2, finalSize, finalSize);
+                        ctx.fill();
                     } else if (shape === 'number') {
                         ctx.font = `bold ${finalSize * 1.5}px monospace`;
                         const num = Math.floor((slowTime * 5 + x + y) % 10);

@@ -79,6 +79,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
     'neon_edge',
     'pixel_flow',
     'time_scan',
+    'line',
     'kinetic_plexus',
     'landmark_constellation',
     'tri_mesh',
@@ -383,6 +384,8 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
         shaderRendererRef.current = createShaderRenderer(internalCanvas);
       }
       if (displayCtx && source && shaderRendererRef.current) {
+          displayCtx.imageSmoothingEnabled = true;
+          displayCtx.imageSmoothingQuality = 'high';
           const elapsed = (Date.now() - startTimeRef.current) / 1000;
           frameCountRef.current++;
           const shouldUpdateMask = globalParams.autoTracking && segmenterRef.current && (!isVideo || frameCountRef.current % 6 === 0);
@@ -444,7 +447,7 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
                 };
               });
             } catch (e) {}
-          } else if (!TRACKED_EFFECTS.has(activeEffect.id)) {
+          } else if (!TRACKED_EFFECTS.has(activeEffect.id) && globalParams.target === 'entire') {
             detectionBoxesRef.current = [];
           }
           const renderEffect = globalParams.effectEnabled && globalParams.previewMode !== 'original';

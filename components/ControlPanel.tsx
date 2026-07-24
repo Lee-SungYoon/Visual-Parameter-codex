@@ -124,14 +124,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const renderEffectMenu = () => (
-    <div className="grid grid-cols-6 gap-2 xl:grid-cols-12">
+    <div className="flex max-w-[calc(100vw-32px)] items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
       {allEffects.map((effect) => {
         const isActive = activeEffect.id === effect.id;
         return (
           <button
             key={effect.id}
             onClick={() => onSelectEffect(effect)}
-            className={`h-10 rounded-[18px] border px-3 text-[10px] font-black uppercase transition ${isActive ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/55 hover:border-white/35 hover:bg-white/15 hover:text-white'}`}
+            className={`h-10 shrink-0 rounded-[18px] border px-3 text-[10px] font-black uppercase transition ${isActive ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/55 hover:border-white/35 hover:bg-white/15 hover:text-white'}`}
           >
             {effect.name}
           </button>
@@ -183,8 +183,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const renderGlobalMenu = () => (
-    <div className="flex flex-wrap items-center justify-between gap-x-7 gap-y-3">
-      <div className="flex flex-wrap items-center gap-x-7 gap-y-3">
+    <div className="flex max-w-[calc(100vw-32px)] items-center justify-between gap-x-7 overflow-x-auto whitespace-nowrap pb-1">
+      <div className="flex shrink-0 items-center gap-x-7">
         <SlidersHorizontal size={16} className="text-white/35" />
         {renderColorSlider('hue', 'HUE', 0, 360, 'bg-[linear-gradient(90deg,#ff003c,#ffee00,#00ff73,#00d5ff,#332cff,#ff00c8,#ff003c)]')}
         {renderColorSlider('saturation', 'SAT', 0, 100)}
@@ -198,12 +198,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           Color Mix
         </button>
         <div className="hidden h-9 w-px bg-white/10 lg:block" />
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           {MODE_BUTTONS.map(renderModeButton)}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-6">
+      <div className="flex shrink-0 items-center gap-6">
         <button
           onClick={() => updateGlobal('autoTracking', !globalParams.autoTracking)}
           className={`flex h-10 items-center gap-3 rounded-full border px-7 text-[10px] font-black uppercase transition ${
@@ -248,7 +248,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     if (config.type === 'slider') {
       const numericValue = typeof value === 'number' ? value : Number(value) || 0;
       return (
-        <div key={key} className="min-w-[128px] flex-1 max-w-[188px]">
+        <div key={key} className="w-[168px] shrink-0">
           <div className="flex items-center justify-between gap-3 text-[8px] font-black text-white/45">
             <span className="truncate">{label}</span>
             <span className="tabular-nums text-white/75">{formatParamValue(numericValue, config)}</span>
@@ -269,7 +269,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     if (config.type === 'select') {
       const isIconSelect = config.options?.every((option) => ['arrow', 'dot', 'square', 'number', 'alphabet'].includes(option));
       return (
-        <div key={key} className={isIconSelect ? 'flex min-w-fit items-end' : 'min-w-[190px]'}>
+        <div key={key} className={isIconSelect ? 'flex min-w-fit shrink-0 items-end' : 'w-[190px] shrink-0'}>
           {!isIconSelect && <div className="mb-2 text-[8px] font-black uppercase text-white/45">{label}</div>}
           <div className="flex rounded-[18px] border border-white/10 bg-black/35 p-1">
             {config.options?.map((option) => (
@@ -323,13 +323,13 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         {renderGlobalMenu()}
       </div>
 
-      <div className="rounded-[18px] border border-white/10 bg-zinc-950/55 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex max-w-[720px] flex-1 flex-wrap items-center gap-4">
+      <div className="max-w-[calc(100vw-32px)] overflow-x-auto rounded-[18px] border border-white/10 bg-zinc-950/55 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+        <div className="flex min-w-max items-center justify-between gap-6">
+          <div className="flex shrink-0 items-center gap-4">
             {(Object.entries(activeEffect.paramConfig) as [string, ParamConfig][]).map(renderParamControl)}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <div className="flex rounded-full border border-white/10 bg-black/35 p-1">
               {PREVIEW_MODES.map((mode) => (
                 <button

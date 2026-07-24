@@ -215,8 +215,8 @@ export const EFFECTS: EffectDef[] = [
   },
   {
     id: 'line',
-    name: 'LINE',
-    description: 'Dynamic edge-detected trails',
+    name: 'OBJECT',
+    description: 'Clean edge-tracked object glyphs',
     category: 'reference_effect',
     status: 'Complete',
     gpuLoad: 'Low',
