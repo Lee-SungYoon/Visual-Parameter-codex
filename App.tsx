@@ -17,6 +17,37 @@ const SUPPORTED_MEDIA_TYPES = new Set([
   'video/webm',
 ]);
 
+const COLOR_ASSET_KEYS = ['bw', 'xray', 'thermal', 'invert', 'dramaticWarm', 'dramaticCool'] as const;
+type ColorAssetKey = typeof COLOR_ASSET_KEYS[number];
+
+const getActiveColorAssets = (params: GlobalParams): ColorAssetKey[] => (
+  COLOR_ASSET_KEYS.filter((key) => params[key])
+);
+
+const buildRandomColorAssetPatch = (params: GlobalParams): Pick<GlobalParams, ColorAssetKey> => {
+  const selected: ColorAssetKey[] = [];
+  const currentAssets = getActiveColorAssets(params);
+  const targetCount = Math.random() < 0.62 ? 2 : 1;
+
+  if (currentAssets.length > 0 && Math.random() < 0.55) {
+    selected.push(currentAssets[randomInt(0, currentAssets.length - 1)]);
+  }
+
+  while (selected.length < targetCount) {
+    const options = COLOR_ASSET_KEYS.filter((key) => !selected.includes(key));
+    selected.push(options[randomInt(0, options.length - 1)]);
+  }
+
+  return {
+    bw: selected.includes('bw'),
+    xray: selected.includes('xray'),
+    thermal: selected.includes('thermal'),
+    invert: selected.includes('invert'),
+    dramaticWarm: selected.includes('dramaticWarm'),
+    dramaticCool: selected.includes('dramaticCool'),
+  };
+};
+
 const App: React.FC = () => {
   const [mediaSrc, setMediaSrc] = useState<string | null>(null);
   const [isVideo, setIsVideo] = useState(false);
@@ -192,9 +223,10 @@ const App: React.FC = () => {
 
   // Mix Mode
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
+    let effectInterval: ReturnType<typeof setInterval> | undefined;
+    let colorInterval: ReturnType<typeof setInterval> | undefined;
     if (globalParams.mixMode && !isOnAirView) {
-      const mix = () => {
+      const mixEffect = () => {
         const currentEffect = activeEffectRef.current;
         const mixableEffects = EFFECTS.filter(effect => effect.id !== 'none');
         const randomEffect = Math.random() < 0.58 && currentEffect.id !== 'none'
@@ -232,35 +264,22 @@ const App: React.FC = () => {
         });
         setActiveEffect(randomEffect);
         setEffectParams(newParams);
-        const currentGlobal = globalParamsRef.current;
-        const activeColorMode = currentGlobal.bw
-          ? 1
-          : currentGlobal.xray
-            ? 2
-            : currentGlobal.thermal
-              ? 3
-              : currentGlobal.invert
-                ? 4
-                : currentGlobal.dramaticWarm
-                  ? 5
-                  : currentGlobal.dramaticCool
-                    ? 6
-                    : 0;
-        const colorMode = Math.random() < 0.68 ? activeColorMode : randomInt(0, 6);
+      };
+      const mixColorAssets = () => {
         setGlobalParams(prev => ({
           ...prev,
-          bw: colorMode === 1,
-          xray: colorMode === 2,
-          thermal: colorMode === 3,
-          invert: colorMode === 4,
-          dramaticWarm: colorMode === 5,
-          dramaticCool: colorMode === 6,
+          ...buildRandomColorAssetPatch(prev),
         }));
       };
-      mix();
-      interval = setInterval(mix, 3000);
+      mixEffect();
+      mixColorAssets();
+      effectInterval = setInterval(mixEffect, 3000);
+      colorInterval = setInterval(mixColorAssets, 1000);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (effectInterval) clearInterval(effectInterval);
+      if (colorInterval) clearInterval(colorInterval);
+    };
   }, [globalParams.mixMode, isOnAirView]);
 
   // Color Mix

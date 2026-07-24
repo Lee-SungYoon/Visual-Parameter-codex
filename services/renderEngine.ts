@@ -218,19 +218,34 @@ const getEffectStyle = (ctx: CanvasRenderingContext2D, width: number, height: nu
 };
 
 const drawPixel = (ctx: CanvasRenderingContext2D, width: number, height: number, params: any, time: number) => {
-  const baseSize = params.pixelSize || 8;
-  const variance = params.sizeVariance || 0;
-  const wave = (Math.sin(time * 5.0) + Math.sin(time * 2.3) * 0.5) / 1.5;
-  const maxSteps = 5;
-  const currentStep = Math.round(wave * (variance * maxSteps));
-  const offset = currentStep * 4;
-  let size = baseSize + offset;
-  size = Math.max(4, Math.round(size / 4) * 4);
-  const w = Math.ceil(width / size);
-  const h = Math.ceil(height / size);
+  const size = Math.max(2, Math.round(params.pixelSize || 8));
+  const source = document.createElement('canvas');
+  source.width = width;
+  source.height = height;
+  const sourceCtx = source.getContext('2d');
+  if (!sourceCtx) return;
+  sourceCtx.drawImage(ctx.canvas, 0, 0);
+
+  ctx.clearRect(0, 0, width, height);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(ctx.canvas, 0, 0, width, height, 0, 0, w, h);
-  ctx.drawImage(ctx.canvas, 0, 0, w, h, 0, 0, width, height);
+
+  for (let y = 0; y < height; y += size) {
+    for (let x = 0; x < width; x += size) {
+      const sampleX = Math.min(width - 1, x + Math.floor(size / 2));
+      const sampleY = Math.min(height - 1, y + Math.floor(size / 2));
+      ctx.drawImage(
+        source,
+        sampleX,
+        sampleY,
+        1,
+        1,
+        x,
+        y,
+        Math.min(size, width - x),
+        Math.min(size, height - y),
+      );
+    }
+  }
 };
 
 const drawHalftone = (ctx: CanvasRenderingContext2D, width: number, height: number, params: any, style: string | CanvasGradient, time: number) => {
@@ -604,7 +619,17 @@ const applyEnhancedColorEffects = (ctx: CanvasRenderingContext2D, width: number,
         }
 
         // Thermal / Xray / etc (existing logic slightly improved)
-        if (global.xray) { r = 255 - r; g = 255 - g; b = 255 - b; }
+        if (global.xray) {
+            const l = Math.max(0, Math.min(1, (0.299 * r + 0.587 * g + 0.114 * b) / 255));
+            const core = Math.pow(1 - l, 1.05);
+            r = 6 + core * 48;
+            g = 18 + core * 220;
+            b = 34 + core * 255;
+            const contrast = Math.max(0, Math.min(1, Math.abs(l - 0.5) * 2));
+            r += contrast * 34;
+            g += contrast * 60;
+            b += contrast * 64;
+        }
         if (global.thermal) {
             const l = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
             if (l < 0.33) { r = 0; g = 0; b = l * 765; }

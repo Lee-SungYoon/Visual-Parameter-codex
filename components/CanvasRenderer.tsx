@@ -513,7 +513,15 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
             if (fallbackCtx) {
               fallbackCtx.imageSmoothingEnabled = true;
               fallbackCtx.imageSmoothingQuality = 'high';
-              renderFrame(fallbackCtx, source, activeEffect.id, effectParams, globalParams, elapsed);
+              const fallbackGlobals = {
+                ...globalParams,
+                applyTo: globalParams.target === 'background'
+                  ? 'background'
+                  : globalParams.target === 'subject'
+                    ? 'subject'
+                    : 'both',
+              };
+              renderFrame(fallbackCtx, source, activeEffect.id, effectParams, fallbackGlobals, elapsed);
             }
           }
           displayCtx.clearRect(0, 0, canvasSize.w, canvasSize.h);

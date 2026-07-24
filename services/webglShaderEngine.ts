@@ -179,7 +179,7 @@ vec2 repelFromBoxes(vec2 p, float radius, float strength) {
   return offset;
 }
 
-float trackedMask(vec2 p, float feather) {
+float trackedSubjectMask(vec2 p, float feather) {
   if (u_boxCount == 0) {
     vec2 q = p - vec2(0.5);
     q.x *= u_resolution.x / max(u_resolution.y, 1.0);
@@ -193,6 +193,18 @@ float trackedMask(vec2 p, float feather) {
     mask = max(mask, 1.0 - smoothstep(0.0, max(feather, 0.001), d));
   }
   return clamp(mask, 0.0, 1.0);
+}
+
+float trackedMask(vec2 p, float feather) {
+  float subject = trackedSubjectMask(p, feather);
+  float targetMode = u_common.w;
+  if (targetMode > 1.5 && targetMode < 2.5) {
+    return 1.0 - subject;
+  }
+  if (targetMode > 2.5) {
+    return 1.0;
+  }
+  return subject;
 }
 
 vec2 trackedCenter() {
@@ -304,9 +316,9 @@ void main() {
     vec2 c = trackedCenter();
     effectUv += normalize(uv - c + vec2(0.0001)) * smoothstep(u_params[1] / 255.0, 0.45, edgeProbe) * u_params[2] * 0.0016 * (0.4 + subject);
   } else if (u_effect == 5) {
-    float size = max(u_params[0], 2.0);
-    vec2 grid = vec2(size) / u_resolution;
-    effectUv = (floor(uv / grid) + 0.5) * grid;
+    float tileSize = max(floor(u_params[0] + 0.5), 2.0);
+    vec2 tileCenter = (floor(uv * u_resolution / tileSize) + 0.5) * tileSize;
+    effectUv = clamp(tileCenter / u_resolution, vec2(0.001), vec2(0.999));
   } else if (u_effect == 6) {
     vec2 c = trackedCenter();
     float subject = trackedMask(uv, 0.2);
@@ -756,8 +768,12 @@ void main() {
   vec2 postPx = 1.0 / u_resolution;
   float postEdge = length(sampleSource(uv + vec2(postPx.x, 0.0)).rgb - sampleSource(uv - vec2(postPx.x, 0.0)).rgb);
   postEdge += length(sampleSource(uv + vec2(0.0, postPx.y)).rgb - sampleSource(uv - vec2(0.0, postPx.y)).rgb);
-  vec3 xrayColor = vec3(0.015, 0.09, 0.13) + vec3(0.18, 0.82, 1.0) * pow(1.0 - postLuma, 1.65);
-  xrayColor += vec3(0.6, 0.95, 1.0) * smoothstep(0.045, 0.24, postEdge) * 0.95;
+  float xrayCore = pow(1.0 - postLuma, 1.08);
+  float xrayEdge = smoothstep(0.025, 0.18, postEdge);
+  vec3 xrayColor = vec3(0.0, 0.02, 0.045) + vec3(0.16, 0.9, 1.0) * xrayCore;
+  xrayColor += vec3(0.58, 1.0, 1.0) * xrayEdge * 1.35;
+  xrayColor = mix(xrayColor, vec3(0.0, 0.012, 0.025), smoothstep(0.82, 1.0, postLuma) * 0.42);
+  xrayColor = clamp((xrayColor - 0.5) * 1.28 + 0.5, 0.0, 1.0);
   vec3 solarColor = vec3(
     smoothstep(0.08, 0.95, postLuma) * 1.18,
     smoothstep(0.22, 0.84, postLuma) * 0.58,
@@ -771,9 +787,9 @@ void main() {
   color = mix(color, chromeColor, u_lookFlags.z);
   color = mix(color, thermal(color), u_flags.z);
   color = mix(color, xrayColor, u_lookFlags.x);
-  color = mix(color, 1.0 - color, u_flags.y);
   float bwLuma = dot(color, vec3(0.299, 0.587, 0.114));
   color = mix(color, vec3(bwLuma), u_flags.x);
+  color = mix(color, 1.0 - color, smoothstep(0.02, 1.0, u_flags.y));
   color += (hash(v_uv * u_time * 180.0) - 0.5) * grain * 0.12;
   float vig = smoothstep(0.95, 0.18, length(v_uv - 0.5));
   color *= mix(1.0, vig, vignette);
@@ -802,17 +818,20 @@ void main() {
   float originalMix = u_effect == 2 ? 0.0 : (sourceTransform > 0.5 ? clamp(u_common.y, 0.0, 0.18) : clamp(u_common.y, 0.0, 1.0));
   color = mix(color, originalColor, originalMix);
   float finalLuma = dot(color, vec3(0.299, 0.587, 0.114));
-  vec3 finalXray = vec3(0.01, 0.08, 0.12) + vec3(0.2, 0.86, 1.0) * pow(1.0 - finalLuma, 1.7);
-  finalXray += vec3(0.55, 0.95, 1.0) * smoothstep(0.045, 0.24, postEdge);
+  float finalXrayCore = pow(1.0 - finalLuma, 1.05);
+  vec3 finalXray = vec3(0.0, 0.018, 0.04) + vec3(0.15, 0.92, 1.0) * finalXrayCore;
+  finalXray += vec3(0.62, 1.0, 1.0) * xrayEdge * 1.42;
+  finalXray = mix(finalXray, vec3(0.0, 0.01, 0.025), smoothstep(0.82, 1.0, finalLuma) * 0.42);
+  finalXray = clamp((finalXray - 0.5) * 1.34 + 0.5, 0.0, 1.0);
   vec3 finalColorMixTint = mix(vec3(finalLuma) * u_color * 1.55, color * (0.72 + u_color * 0.58), 0.5);
   color = mix(color, finalColorMixTint, u_lookFlags.w * 0.62);
   color = mix(color, solarColor, u_lookFlags.y);
   color = mix(color, chromeColor, u_lookFlags.z);
   color = mix(color, thermal(color), u_flags.z);
   color = mix(color, finalXray, u_lookFlags.x);
-  color = mix(color, 1.0 - color, u_flags.y);
   finalLuma = dot(color, vec3(0.299, 0.587, 0.114));
   color = mix(color, vec3(finalLuma), u_flags.x);
+  color = mix(color, 1.0 - color, smoothstep(0.02, 1.0, u_flags.y));
 
   gl_FragColor = vec4(clamp(color, 0.0, 1.0), base.a);
 }
@@ -1135,12 +1154,17 @@ export const renderShaderFrame = (
         : globalParams.blendMode === 'difference'
           ? 4
           : 0;
+  const targetMode = globalParams.target === 'background'
+    ? 2
+    : globalParams.target === 'both'
+      ? 3
+      : 1;
   gl.uniform4f(
     renderer.commonLocation,
     globalParams.effectEnabled ? globalParams.effectAmount : 0,
     globalParams.originalMix,
     blendMode,
-    globalParams.speed
+    targetMode
   );
   gl.uniform4f(
     renderer.flagsLocation,
