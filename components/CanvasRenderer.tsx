@@ -53,11 +53,14 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
   const shaderRendererRef = useRef<ReturnType<typeof createShaderRenderer>>(null);
   const shaderUnavailableRef = useRef(false);
   const requestRef = useRef<number | undefined>(undefined);
+  const videoFrameRequestRef = useRef<number | undefined>(undefined);
   const startTimeRef = useRef<number>(Date.now());
   const lastMaskRef = useRef<ImageData | null>(null);
   const detectionBoxesRef = useRef<DetectionBox[]>([]);
   const colorModeWeightsRef = useRef<ColorModeWeights>({ bw: 0, xray: 0, invert: 0, thermal: 0, warm: 0, cool: 0 });
   const frameCountRef = useRef<number>(0);
+  const sourceFpsRef = useRef<number>(30);
+  const lastVideoMediaTimeRef = useRef<number | undefined>(undefined);
   const lastPlaybackStateRef = useRef<PlaybackState>({
     isPlaying: false,
     currentTime: 0,
@@ -153,7 +156,8 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
         exportAnimationFrame = requestAnimationFrame(drawExportFrame);
       };
       drawExportFrame();
-      const canvasStream = (exportCanvas as HTMLCanvasElement & { captureStream: (frameRate?: number) => MediaStream }).captureStream(60);
+      const exportFps = isVideo ? Math.max(12, Math.min(60, Math.round(sourceFpsRef.current || 30))) : 30;
+      const canvasStream = (exportCanvas as HTMLCanvasElement & { captureStream: (frameRate?: number) => MediaStream }).captureStream(exportFps);
       const exportStream = new MediaStream(canvasStream.getVideoTracks());
       const sourceVideo = isVideo ? sourceVideoRef.current : null;
       const sourceCaptureStream = sourceVideo && 'captureStream' in sourceVideo
@@ -449,7 +453,9 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
       if (displayCtx && source) {
           displayCtx.imageSmoothingEnabled = true;
           displayCtx.imageSmoothingQuality = 'high';
-          const elapsed = (Date.now() - startTimeRef.current) / 1000;
+          const elapsed = source instanceof HTMLVideoElement
+            ? source.currentTime || 0
+            : (Date.now() - startTimeRef.current) / 1000;
           frameCountRef.current++;
           const shouldUpdateMask = globalParams.autoTracking && segmenterRef.current && (!isVideo || frameCountRef.current % 6 === 0);
           if (shouldUpdateMask) {
@@ -608,13 +614,47 @@ const CanvasRenderer = forwardRef<CanvasRendererHandle, CanvasRendererProps>(({
           displayCtx.restore();
       }
     }
-    requestRef.current = requestAnimationFrame(animate);
   };
 
   useEffect(() => {
-    requestRef.current = requestAnimationFrame(animate);
+    let stopped = false;
+    const schedule = () => {
+      if (stopped) return;
+      const video = sourceVideoRef.current as (HTMLVideoElement & {
+        requestVideoFrameCallback?: (callback: (now: number, metadata: { mediaTime: number }) => void) => number;
+        cancelVideoFrameCallback?: (handle: number) => void;
+      }) | null;
+
+      if (isVideo && video?.requestVideoFrameCallback && !video.paused) {
+        videoFrameRequestRef.current = video.requestVideoFrameCallback((_, metadata) => {
+          const previousMediaTime = lastVideoMediaTimeRef.current;
+          if (previousMediaTime !== undefined) {
+            const frameDelta = metadata.mediaTime - previousMediaTime;
+            if (frameDelta > 0.005 && frameDelta < 0.2) {
+              const measuredFps = 1 / frameDelta;
+              sourceFpsRef.current = sourceFpsRef.current * 0.86 + measuredFps * 0.14;
+            }
+          }
+          lastVideoMediaTimeRef.current = metadata.mediaTime;
+          animate();
+          schedule();
+        });
+      } else {
+        requestRef.current = requestAnimationFrame(() => {
+          animate();
+          schedule();
+        });
+      }
+    };
+
+    schedule();
     return () => {
-      cancelAnimationFrame(requestRef.current!);
+      stopped = true;
+      if (requestRef.current !== undefined) cancelAnimationFrame(requestRef.current);
+      const video = sourceVideoRef.current as (HTMLVideoElement & { cancelVideoFrameCallback?: (handle: number) => void }) | null;
+      if (videoFrameRequestRef.current !== undefined && video?.cancelVideoFrameCallback) {
+        video.cancelVideoFrameCallback(videoFrameRequestRef.current);
+      }
       disposeShaderRenderer(shaderRendererRef.current);
       shaderRendererRef.current = null;
     };

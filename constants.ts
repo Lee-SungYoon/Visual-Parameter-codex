@@ -81,7 +81,7 @@ export const EFFECTS: EffectDef[] = [
     gpuLoad: 'Medium',
     defaultParams: {
       rgbAmount: 0.03,
-      direction: 'radial',
+      direction: 'horizontal',
       radialAmount: 0.9,
       jitter: 0.98,
       lensDistortion: 0.89,

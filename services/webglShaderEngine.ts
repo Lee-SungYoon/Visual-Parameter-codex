@@ -307,14 +307,16 @@ void main() {
       vec2 subLocal = fract((local + 0.5) * pow(2.0, float(i) + 1.0)) - 0.5;
       depth += (0.018 / (float(i) + 1.0)) * (1.0 - smoothstep(0.2, 0.55, length(subLocal))) * lum;
     }
-    vec2 normalDir = normalize(local + (uv - c) * subject + vec2(0.0001));
-    effectUv += normalDir * depth * gridSize / u_resolution * (0.65 + subject * 0.55);
+    float motionPulse = 0.76 + 0.24 * sin(u_time * 2.0 + hash(cell) * 6.2831);
+    vec2 normalDir = normalize(local + (uv - c) * (0.35 + subject) + vec2(0.0001));
+    effectUv += normalDir * depth * gridSize / u_resolution * (0.72 + subject * 1.2) * motionPulse;
   } else if (u_effect == 4) {
     float edgeProbe = length(sampleSource(uv + vec2(0.002, 0.0)).rgb - sampleSource(uv - vec2(0.002, 0.0)).rgb);
     edgeProbe += length(sampleSource(uv + vec2(0.0, 0.002)).rgb - sampleSource(uv - vec2(0.0, 0.002)).rgb);
     float subject = trackedMask(uv, 0.14);
     vec2 c = trackedCenter();
-    effectUv += normalize(uv - c + vec2(0.0001)) * smoothstep(u_params[1] / 255.0, 0.45, edgeProbe) * u_params[2] * 0.0016 * (0.4 + subject);
+    float motionPulse = 0.78 + 0.22 * sin(u_time * 2.6 + edgeProbe * 12.0);
+    effectUv += normalize(uv - c + vec2(0.0001)) * smoothstep(u_params[1] / 255.0, 0.45, edgeProbe) * u_params[2] * 0.0028 * (0.5 + subject * 1.35) * motionPulse;
   } else if (u_effect == 5) {
     float tileSize = max(floor(u_params[0] + 0.5), 2.0);
     vec2 tileCenter = (floor(uv * u_resolution / tileSize) + 0.5) * tileSize;
@@ -356,16 +358,19 @@ void main() {
   } else if (u_effect == 14) {
     float direction = u_params[0];
     float threshold = u_params[1];
-    float stretch = u_params[6] * 0.24;
+    float subject = trackedMask(uv, 0.16);
+    vec2 c = trackedCenter();
+    float stretch = u_params[6] * 0.34 * (0.72 + subject * 0.95);
     float wave = sin((uv.y + uv.x * 0.3 + u_time * u_params[5] * 0.08) * 80.0) * u_params[4] * 0.015;
     float sourceLuma = dot(sampleSource(uv).rgb, vec3(0.299, 0.587, 0.114));
-    vec2 radialDir = normalize(centered + vec2(0.0001));
+    float motionGate = smoothstep(threshold, 1.0, sourceLuma) * (0.55 + subject * 0.75);
+    vec2 radialDir = normalize(uv - c + vec2(0.0001));
     if (direction < 0.5) {
-      effectUv.x += step(threshold, sourceLuma) * stretch + wave;
+      effectUv.x += motionGate * stretch + wave * (0.35 + subject);
     } else if (direction < 1.5) {
-      effectUv.y += step(threshold, sourceLuma) * stretch + wave;
+      effectUv.y += motionGate * stretch + wave * (0.35 + subject);
     } else {
-      effectUv += radialDir * (step(threshold, sourceLuma) * stretch + wave);
+      effectUv += radialDir * (motionGate * stretch + wave * (0.35 + subject));
     }
   } else if (u_effect == 15) {
     float direction = u_params[1];
@@ -415,10 +420,21 @@ void main() {
       0.35 + 0.65 * hash(vec2(colorSeed, 5.3)),
       0.35 + 0.65 * hash(vec2(colorSeed, 9.1))
     );
-    randomTrailColor = mix(randomTrailColor, normalize(u_color + randomTrailColor + vec3(0.12)), 0.35);
-    vec3 coloredShadow = mix(invertedTrail, randomTrailColor * (0.72 + focus * 0.28), shadow);
-    vec3 trailBase = mix(feedback, coloredShadow, shadow * (0.6 + decay * 0.32));
-    color = mix(color, trailBase * (1.0 - decay * 0.18) + u_color * bright * glow, trail * (0.35 + focus * 0.85));
+    randomTrailColor = mix(randomTrailColor, normalize(u_color + randomTrailColor + vec3(0.12)), 0.2);
+    vec3 rgbBox = vec3(
+      sampleSource(effectUv + px * vec2(2.7, 0.0)).r,
+      sampleSource(effectUv + px * vec2(0.0, -2.0)).g,
+      sampleSource(effectUv + px * vec2(-2.7, 1.8)).b
+    );
+    float boxGrid = max(
+      1.0 - smoothstep(0.0, 0.035 + fwidth(fract(uv.x * 9.0)), min(fract(uv.x * 9.0), 1.0 - fract(uv.x * 9.0))),
+      1.0 - smoothstep(0.0, 0.035 + fwidth(fract(uv.y * 6.0)), min(fract(uv.y * 6.0), 1.0 - fract(uv.y * 6.0)))
+    );
+    float boxMask = clamp((shadow * 0.68 + bright * 0.42 + focus * 0.45) * boxGrid, 0.0, 1.0);
+    vec3 coloredShadow = mix(invertedTrail, randomTrailColor * (1.08 + focus * 0.42) + rgbBox * 0.45, shadow);
+    vec3 trailBase = mix(feedback, coloredShadow, shadow * (0.76 + decay * 0.38));
+    color = mix(color, trailBase * (1.0 - decay * 0.1) + u_color * bright * glow * 1.28, trail * (0.52 + focus * 1.05));
+    color = mix(color, rgbBox * (0.7 + randomTrailColor * 0.75), boxMask * trail);
   } else if (u_effect == 12) {
     float amount = u_params[0];
     float direction = u_params[1];
@@ -486,7 +502,8 @@ void main() {
       float subLine = min(abs(sub.x), abs(sub.y));
       recursiveMask = max(recursiveMask, 1.0 - smoothstep(0.0, 0.014 + fwidth(subLine), subLine));
     }
-    float lift = clamp(cellLum + subject * 0.18, 0.0, 1.0);
+    float motionPulse = 0.74 + 0.26 * sin(u_time * 2.4 + hash(cell) * 6.2831);
+    float lift = clamp(cellLum + subject * 0.28 + motionPulse * 0.1, 0.0, 1.0);
     float triLine = min(abs(local.y + local.x * 0.866), min(abs(local.y - local.x * 0.866), abs(local.y + 0.31 + lift * 0.08)));
     float hexLine = abs(length(local) - (0.27 + lift * 0.13));
     float rhombusLine = abs(abs(local.x) + abs(local.y) - (0.31 + lift * 0.16));
@@ -497,9 +514,12 @@ void main() {
     float solidRhombus = 1.0 - smoothstep(0.3 + lift * 0.08, 0.48 + lift * 0.1, abs(local.x) + abs(local.y));
     float solid = shapeMode < 0.5 ? solidTri : (shapeMode < 1.5 ? solidHex : solidRhombus);
     float geo = u_params[2] > 0.5 ? max(wire, recursiveMask * 0.6) : max(wire * 0.35, solid * (0.24 + lift * 0.5) + recursiveMask * 0.18);
-    vec3 cellTone = sampleSource(effectUv + normalize(local + vec2(0.0001)) * geo * gridSize / u_resolution * 0.28).rgb;
-    vec3 relief = mix(cellTone * (0.55 + lift * 0.55), cellTone * (0.9 + u_color * 0.65), geo);
-    color = mix(color, relief, clamp(geo * (0.68 + subject * 0.3), 0.0, 1.0));
+    float reactiveGeo = clamp(geo * (0.82 + subject * 0.7) * motionPulse, 0.0, 1.0);
+    vec2 reliefUv = effectUv + normalize(local + (v_uv - trackedCenter()) * subject + vec2(0.0001)) * reactiveGeo * gridSize / u_resolution * (0.42 + lift * 0.28);
+    vec3 cellTone = sampleSource(reliefUv).rgb;
+    vec3 thermalGeo = thermal(cellTone);
+    vec3 relief = mix(cellTone * (0.68 + lift * 0.62), mix(cellTone, thermalGeo, 0.38) * (0.88 + u_color * 0.42), reactiveGeo);
+    color = mix(color, relief, reactiveGeo);
   } else if (u_effect == 4) {
     vec2 px = 1.0 / u_resolution;
     float edge = length(sampleSource(effectUv + vec2(px.x, 0.0)).rgb - sampleSource(effectUv - vec2(px.x, 0.0)).rgb);
@@ -520,11 +540,15 @@ void main() {
     local += vec2(jitter, jitter * 0.55);
     float glyph = objectGlyph(local, cellId, shapeType);
     float focus = trackedMask(uv, 0.1);
-    float objectMask = glyph * max(edgeMask, focus * 0.62);
-    float halo = smoothstep(threshold * 0.45, threshold + 0.2, edge) * 0.28;
-    vec3 warpedVideo = sampleSource(effectUv + (local - 0.5) * objectMask * dotSize / u_resolution * 0.9).rgb;
-    vec3 objectTintedVideo = mix(warpedVideo, warpedVideo * (0.78 + u_color * 0.72), clamp(objectMask + halo, 0.0, 1.0));
-    color = mix(color, objectTintedVideo, clamp(objectMask + halo * 0.7, 0.0, 1.0));
+    float pulse = 0.72 + 0.28 * sin(u_time * 3.0 + hash(cellId) * 6.2831);
+    float objectMask = glyph * max(edgeMask * 1.25, focus * 0.78) * pulse;
+    float halo = smoothstep(threshold * 0.42, threshold + 0.2, edge) * (0.18 + focus * 0.34);
+    vec2 warp = (local - 0.5) * (objectMask + halo) * dotSize / u_resolution * (1.65 + randomAmount);
+    vec3 warpedVideo = sampleSource(effectUv + warp).rgb;
+    vec3 objectThermal = thermal(1.0 - warpedVideo);
+    vec3 objectTintedVideo = mix(warpedVideo, objectThermal, clamp(objectMask * 0.92 + halo, 0.0, 1.0));
+    objectTintedVideo = mix(objectTintedVideo, objectTintedVideo * (0.8 + u_color * 0.65), clamp(objectMask + halo, 0.0, 1.0));
+    color = mix(color, objectTintedVideo, clamp(objectMask + halo, 0.0, 1.0));
   } else if (u_effect == 6) {
     float dotSize = max(u_params[0], 4.0);
     vec2 c = trackedCenter();
@@ -550,9 +574,11 @@ void main() {
     radius = mix(radius, min(radius * 1.28, 0.49), subject * 0.22 + motionEdge * 0.26);
     float dot = 1.0 - smoothstep(radius, radius + max(fwidth(length(cell)), 0.012), length(cell));
     vec3 invertedDotVideo = 1.0 - cellColor;
-    vec3 graphicColor = mix(invertedDotVideo, invertedDotVideo * (0.72 + u_color * 0.72), 0.58 + motionEdge * 0.28);
+    vec3 thermalDot = thermal(invertedDotVideo);
+    vec3 graphicColor = mix(invertedDotVideo, thermalDot, 0.74 + motionEdge * 0.22);
+    graphicColor = mix(graphicColor, graphicColor * (0.82 + u_color * 0.58), 0.42);
     vec3 paperTone = color * (0.86 - dot * 0.18);
-    color = mix(paperTone, graphicColor, dot * (0.9 + subject * 0.08));
+    color = mix(paperTone, graphicColor, dot * (0.95 + subject * 0.12));
   } else if (u_effect == 7) {
     float density = mix(18.0, 95.0, clamp(u_params[1] / 600.0, 0.0, 1.0));
     float shapeType = u_params[0];
@@ -651,8 +677,14 @@ void main() {
   } else if (u_effect == 14) {
     float subject = trackedMask(v_uv, 0.16);
     float gate = smoothstep(u_params[1], 1.0, luma);
-    vec3 flowVideo = sampleSource(effectUv + normalize(effectUv - trackedCenter() + vec2(0.0001)) * gate * subject * u_params[6] * 0.027).rgb;
-    color = mix(color, flowVideo * (0.9 + u_color * 0.28), gate * subject * 0.86);
+    vec2 flowDir = normalize(effectUv - trackedCenter() + vec2(0.0001));
+    vec2 flowOffset = flowDir * gate * subject * u_params[6] * 0.045;
+    vec3 flowA = sampleSource(effectUv + flowOffset).rgb;
+    vec3 flowB = sampleSource(effectUv - flowOffset * 0.58).rgb;
+    vec3 flowVideo = mix(flowA, flowB, 0.35 + gate * 0.28);
+    flowVideo = (flowVideo - 0.5) * (1.05 + gate * subject * 0.35) + 0.5;
+    flowVideo *= 0.92 + u_color * 0.22;
+    color = mix(color, flowVideo, clamp(0.58 + gate * subject * 0.52, 0.0, 1.0));
   } else if (u_effect == 15) {
     float direction = u_params[1];
     float subject = trackedMask(v_uv, 0.18);
