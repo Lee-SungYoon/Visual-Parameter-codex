@@ -156,7 +156,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   ) => {
     const value = globalParams[key];
     return (
-      <div className="min-w-0 flex-1 basis-[clamp(86px,8.1vw,119px)]">
+      <div className="min-w-[82px] flex-1 basis-[clamp(86px,8.1vw,119px)]">
         <div className="mb-2 flex items-center justify-between text-[8px] font-black uppercase text-white/45">
           <span>{label}</span>
           <span className="tabular-nums text-white/80">{Math.round(value)}</span>
@@ -189,7 +189,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           dramaticCool: false,
           [key]: !active,
         })}
-        className={`h-9 rounded-full border px-6 text-[9px] font-black transition ${
+        className={`h-8 rounded-full border px-3 text-[8px] font-black transition ${
           active ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/70 hover:border-white/35 hover:bg-white/15'
         }`}
       >
@@ -213,7 +213,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           [otherKey]: false,
           [key]: !active,
         })}
-        className={`h-9 rounded-full border px-5 text-[9px] font-black transition ${
+        className={`h-8 rounded-full border px-3 text-[8px] font-black transition ${
           active ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/70 hover:border-white/35 hover:bg-white/15'
         }`}
       >
@@ -241,7 +241,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           dramaticWarm: false,
           dramaticCool: false,
         })}
-        className={`h-9 rounded-full border px-5 text-[9px] font-black transition ${
+        className={`h-8 rounded-full border px-3 text-[8px] font-black transition ${
           active ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white/70 hover:border-white/35 hover:bg-white/15'
         }`}
       >
@@ -251,31 +251,33 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const renderGlobalMenu = () => (
-    <div className="flex w-full max-w-[calc(100vw-25.6px)] items-center justify-between gap-x-4 overflow-hidden whitespace-nowrap">
-      <div className="flex min-w-0 flex-1 items-center gap-x-4">
+    <div className="grid w-full max-w-[calc(100vw-25.6px)] grid-cols-[minmax(260px,25%)_minmax(0,1fr)_auto] items-center gap-x-3 overflow-hidden whitespace-nowrap">
+      <div className="grid min-w-0 grid-cols-3 gap-x-3">
         {renderColorSlider('hue', 'HUE', 0, 360, 'bg-[linear-gradient(90deg,#ff003c,#ffee00,#00ff73,#00d5ff,#332cff,#ff00c8,#ff003c)]')}
         {renderColorSlider('saturation', 'SAT', 0, 100)}
         {renderColorSlider('lightness', 'LUM', 0, 100)}
+      </div>
+      <div className="flex min-w-0 items-center justify-center gap-2 overflow-hidden">
         <button
           onClick={() => updateGlobal('colorMix', !globalParams.colorMix)}
-          className={`h-10 min-w-[132px] rounded-full border px-5 text-[10px] font-black uppercase transition ${
+          className={`h-8 min-w-[96px] rounded-full border px-2 text-[8px] font-black uppercase transition ${
             globalParams.colorMix ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'
           }`}
         >
           Color Mix
         </button>
-        <div className="hidden h-9 w-px bg-white/10 lg:block" />
-        <div className="flex items-center gap-2">
+        <div className="hidden h-8 w-px bg-white/10 lg:block" />
+        <div className="flex min-w-0 items-center gap-1.5">
           {renderOriginalColorButton()}
           {MODE_BUTTONS.map(renderModeButton)}
           {PRESET_BUTTONS.map(renderPresetButton)}
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-4">
+      <div className="flex shrink-0 items-center gap-2">
         <button
           onClick={() => updateGlobal('autoTracking', !globalParams.autoTracking)}
-          className={`flex h-10 items-center gap-2 rounded-full border px-5 text-[10px] font-black uppercase transition ${
+          className={`flex h-9 items-center gap-2 rounded-full border px-3 text-[9px] font-black uppercase transition ${
             globalParams.autoTracking ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'
           }`}
         >
@@ -288,7 +290,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             <button
               key={target.value}
               onClick={() => updateGlobal('target', target.value)}
-              className={`h-8 min-w-[68px] rounded-full px-3 text-[8px] font-black uppercase transition ${
+              className={`h-7 min-w-[54px] rounded-full px-2 text-[7px] font-black uppercase transition ${
                 globalParams.target === target.value ? 'bg-white text-zinc-950' : 'text-white/45 hover:bg-white/10 hover:text-white'
               }`}
             >
@@ -299,7 +301,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
         <button
           onClick={() => updateGlobal('mixMode', !globalParams.mixMode)}
-          className={`flex h-10 items-center gap-2 rounded-full border px-5 text-[10px] font-black uppercase transition ${
+          className={`flex h-9 items-center gap-2 rounded-full border px-3 text-[9px] font-black uppercase transition ${
             globalParams.mixMode ? 'border-white bg-white text-zinc-950' : 'border-white/10 bg-white/10 text-white hover:border-white/35 hover:bg-white/15'
           }`}
         >
